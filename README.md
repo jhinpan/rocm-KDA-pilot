@@ -390,6 +390,31 @@ what we normally use for kernel-design review. See the model architecture map
 above for the exact split between Claude main-agent work, Humanize subagents,
 and Codex calls, including the current caveat around final Codex review effort.
 
+Model name gotcha: keep the hyphen in `gpt-5.5:xhigh`. Do not use
+`gpt5.5:xhigh`. Humanize stores the model name in RLCR state, so a missing
+hyphen can turn into a broken stored model such as `gpt5.5`, while the working
+Codex/Azure deployment is `gpt-5.5`.
+
+If you already started a loop with the wrong model name and Claude reports that
+the Codex review cannot run, prefer restarting the loop instead of editing
+`.humanize/rlcr/<timestamp>/state.md` by hand:
+
+```text
+/humanize:cancel-rlcr-loop
+/humanize:start-rlcr-loop .humanize/kernel-agent/refined-plan.md --skip-quiz --claude-answer-codex --max 12 --codex-model gpt-5.5:xhigh --codex-timeout 5400 --base-branch rocm-kda-base/flydsl-flashattn-gfx950-pr683
+```
+
+Before restarting, check the FlyDSL worktree:
+
+```bash
+git status
+git log -1 --oneline
+```
+
+If the previous round already committed useful work, keep that commit on the
+active experiment branch and restart RLCR from the clean tree. The acceptance
+diff is still against `rocm-kda-base/flydsl-flashattn-gfx950-pr683`.
+
 ## 9. What The Agent Should Run
 
 Quick correctness smoke:
