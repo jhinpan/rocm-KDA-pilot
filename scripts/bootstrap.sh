@@ -55,7 +55,7 @@ Bootstrap complete.
 
 Install Humanize inside Claude Code if you have not already:
 
-  /plugin marketplace add git@github.com:PolyArch/humanize.git
+  /plugin marketplace add https://github.com/PolyArch/humanize.git
   /plugin install humanize@PolyArch
 
 Then verify:
@@ -64,4 +64,3 @@ Then verify:
   /humanize:start-rlcr-loop
 
 EOF
-

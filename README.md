@@ -81,7 +81,7 @@ setup; it must pass on the GPU node where profiling is collected.
 Start Claude Code anywhere, then run these slash commands:
 
 ```text
-/plugin marketplace add git@github.com:PolyArch/humanize.git
+/plugin marketplace add https://github.com/PolyArch/humanize.git
 /plugin install humanize@PolyArch
 ```
 
@@ -97,7 +97,7 @@ If your Claude Code build supports shell plugin commands, this equivalent may
 also work:
 
 ```bash
-claude plugin marketplace add git@github.com:PolyArch/humanize.git
+claude plugin marketplace add https://github.com/PolyArch/humanize.git
 claude plugin install humanize@PolyArch
 ```
 
