@@ -1,0 +1,9 @@
+[submodule "external/ROCmKernelWiki"]
+	path = external/ROCmKernelWiki
+	url = https://github.com/jhinpan/ROCmKernelWiki.git
+[submodule "external/flydsl-rocprof-cli"]
+	path = external/flydsl-rocprof-cli
+	url = https://github.com/jhinpan/flydsl-rocprof-cli.git
+[submodule "external/rocm-report-skill"]
+	path = external/rocm-report-skill
+	url = https://github.com/jhinpan/rocm-report-skill.git
