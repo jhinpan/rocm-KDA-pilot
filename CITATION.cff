@@ -1,0 +1,70 @@
+cff-version: 1.2.0
+message: "If you use ROCm KDA Pilot, please cite this repository and the upstream projects it orchestrates."
+title: "ROCm KDA Pilot: Humanize/KDA-style ROCm Kernel Optimization Workflow"
+type: software
+authors:
+  - family-names: Pan
+    given-names: Jhin
+repository-code: "https://github.com/jhinpan/rocm-KDA-pilot"
+url: "https://github.com/jhinpan/rocm-KDA-pilot"
+date-released: "2026-06-15"
+abstract: "A small workflow scaffold for running Humanize/KDA-style AMD ROCm kernel optimization loops, with a FlyDSL FlashAttention on gfx950 example."
+keywords:
+  - ROCm
+  - FlyDSL
+  - FlashAttention
+  - gfx950
+  - Humanize
+  - Kernel Design Agents
+  - profiling
+references:
+  - type: software
+    title: "FlyDSL"
+    repository-code: "https://github.com/ROCm/FlyDSL"
+    url: "https://github.com/ROCm/FlyDSL"
+  - type: software
+    title: "FlyDSL PR683: FlashAttention PR683 baseline and benchmark harness"
+    url: "https://github.com/ROCm/FlyDSL/pull/683"
+  - type: software
+    title: "FlyDSL PR670: FlashAttention split-K and O-store optimization context"
+    url: "https://github.com/ROCm/FlyDSL/pull/670"
+  - type: software
+    title: "Humanize"
+    repository-code: "https://github.com/PolyArch/humanize"
+    url: "https://github.com/PolyArch/humanize"
+  - type: software
+    title: "ROCmKernelWiki"
+    repository-code: "https://github.com/jhinpan/ROCmKernelWiki"
+    url: "https://github.com/jhinpan/ROCmKernelWiki"
+  - type: software
+    title: "flydsl-rocprof-cli"
+    repository-code: "https://github.com/jhinpan/flydsl-rocprof-cli"
+    url: "https://github.com/jhinpan/flydsl-rocprof-cli"
+  - type: software
+    title: "rocm-report-skill"
+    repository-code: "https://github.com/jhinpan/rocm-report-skill"
+    url: "https://github.com/jhinpan/rocm-report-skill"
+  - type: software
+    title: "aiter"
+    repository-code: "https://github.com/ROCm/aiter"
+    url: "https://github.com/ROCm/aiter"
+  - type: software
+    title: "OpenAI Codex CLI"
+    repository-code: "https://github.com/openai/codex"
+    url: "https://github.com/openai/codex"
+  - type: software
+    title: "KDA-Pilot"
+    repository-code: "https://github.com/BBuf/KDA-Pilot"
+    url: "https://github.com/BBuf/KDA-Pilot"
+  - type: software
+    title: "Kernel Design Agents"
+    repository-code: "https://github.com/mit-han-lab/kernel-design-agents"
+    url: "https://github.com/mit-han-lab/kernel-design-agents"
+  - type: software
+    title: "KernelWiki"
+    repository-code: "https://github.com/mit-han-lab/KernelWiki"
+    url: "https://github.com/mit-han-lab/KernelWiki"
+  - type: software
+    title: "ncu-report-skill"
+    repository-code: "https://github.com/mit-han-lab/ncu-report-skill"
+    url: "https://github.com/mit-han-lab/ncu-report-skill"

@@ -286,3 +286,42 @@ Commit only:
 - small summarized benchmark/profiling notes
 - ledgers and final reports
 
+## References, Credits, And Citations
+
+This workflow is intentionally small glue around other projects. Please cite and
+link the upstream repositories when publishing results produced with this repo.
+
+Directly used by this workflow:
+
+| Project | How ROCm KDA Pilot uses it |
+|---|---|
+| [`ROCm/FlyDSL`](https://github.com/ROCm/FlyDSL) | Target compiler/runtime/kernel repository. The FlashAttention example optimizes its FlyDSL kernels. |
+| [`ROCm/FlyDSL#683`](https://github.com/ROCm/FlyDSL/pull/683) | Working FlashAttention baseline and canonical test/benchmark harness for this example. |
+| [`ROCm/FlyDSL#670`](https://github.com/ROCm/FlyDSL/pull/670) | Historical FlashAttention optimization context, especially dwordx4 O-store and split-K direction. |
+| [`PolyArch/humanize`](https://github.com/PolyArch/humanize) | Humanize `gen-plan` and `start-rlcr-loop` command provider. |
+| [`jhinpan/ROCmKernelWiki`](https://github.com/jhinpan/ROCmKernelWiki) | AMD ROCm kernel knowledge skill used for gfx950/FlyDSL/attention prior art. |
+| [`jhinpan/flydsl-rocprof-cli`](https://github.com/jhinpan/flydsl-rocprof-cli) | `flyprof` profiling CLI and companion skills used for FlyDSL instruction-level diagnosis. |
+| [`jhinpan/rocm-report-skill`](https://github.com/jhinpan/rocm-report-skill) | ROCm profiling report skill used to turn rocprofv3/ATT evidence into testable optimization hypotheses. |
+| [`ROCm/aiter`](https://github.com/ROCm/aiter) | Optional comparison backend used by PR683's FlashAttention benchmark harness when installed. |
+| [`openai/codex`](https://github.com/openai/codex) | Codex CLI used by Humanize for independent review. |
+
+Workflow and methodology references:
+
+| Project | Relationship |
+|---|---|
+| [`BBuf/KDA-Pilot`](https://github.com/BBuf/KDA-Pilot) | Main inspiration for the task-owned worktree, Humanize RLCR, benchmark discipline, and evidence-led kernel optimization style. |
+| [`mit-han-lab/kernel-design-agents`](https://github.com/mit-han-lab/kernel-design-agents) | Minimal Kernel Design Agents reference workflow that inspired the K/R/W task framing. |
+| [`mit-han-lab/KernelWiki`](https://github.com/mit-han-lab/KernelWiki) | Knowledge-base pattern that inspired ROCmKernelWiki. |
+| [`mit-han-lab/ncu-report-skill`](https://github.com/mit-han-lab/ncu-report-skill) | Nsight Compute report-skill methodology that inspired rocm-report-skill. |
+
+Suggested citation for this repo:
+
+```bibtex
+@software{rocm_kda_pilot_2026,
+  title        = {ROCm KDA Pilot: Humanize/KDA-style ROCm Kernel Optimization Workflow},
+  author       = {Jhin Pan},
+  year         = {2026},
+  url          = {https://github.com/jhinpan/rocm-KDA-pilot},
+  note         = {Workflow scaffold for FlyDSL FlashAttention optimization on gfx950}
+}
+```
