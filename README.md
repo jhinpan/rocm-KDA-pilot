@@ -85,6 +85,10 @@ Start Claude Code anywhere, then run these slash commands:
 /plugin install humanize@PolyArch
 ```
 
+Run these slash commands **one at a time**. Do not paste the whole block into
+Claude Code at once; some Claude Code versions concatenate pasted slash-command
+lines and turn the second command into part of the first command's URL.
+
 After installing, verify these commands exist:
 
 ```text
