@@ -32,6 +32,53 @@ Everything else in the workflow is installed or wired up from here.
 Humanize itself is not vendored here. Install it from the upstream
 `PolyArch/humanize` Claude Code marketplace.
 
+## Model Architecture Map
+
+The workflow has two repositories and two model families in play:
+
+- `jhinpan/rocm-KDA-pilot` is the workflow repo. It holds templates, scripts,
+  skills, and docs.
+- `jhinpan/FlyDSL-lab` is the FlyDSL fork where kernel experiments actually
+  happen.
+- Claude Code runs the implementation loop and Humanize slash commands.
+- Codex is called by Humanize for independent analysis and review.
+
+![ROCm KDA Pilot model architecture](docs/model_architecture.svg)
+
+For the current FlashAttention gfx950 flow, acceptance happens in
+`jhinpan/FlyDSL-lab` on:
+
+```text
+kda/flydsl-flashattn-gfx950-pr683
+```
+
+Review it against:
+
+```text
+rocm-kda-base/flydsl-flashattn-gfx950-pr683
+```
+
+`rocm-KDA-pilot` is not where optimized kernel code lands.
+
+Current model usage:
+
+| Stage | Worker | Current model behavior |
+|---|---|---|
+| Claude Code main session | Implements code, runs shell commands, drives Humanize | Whatever Claude Code was launched with; for our runs this should be Opus 4.8 |
+| `/humanize:gen-plan` main work | Claude Code plus Humanize | Main Claude session model |
+| `gen-plan` draft relevance check | Humanize subagent | Haiku in upstream Humanize |
+| RLCR plan compliance pre-check | Humanize subagent | Sonnet in upstream Humanize |
+| RLCR plan quiz | Humanize subagent | Opus in upstream Humanize, but skipped when using `--skip-quiz` |
+| RLCR coding tasks | Claude Code main session | Should be Opus 4.8 if Claude Code was launched that way |
+| RLCR analyze / ask-Codex tasks | Codex CLI | Intended as `gpt-5.5:xhigh` when passed through the RLCR command/config |
+| RLCR stop-hook review summary | Codex CLI | Intended as `gpt-5.5:xhigh` |
+| RLCR final Codex review | Codex CLI | Uses `gpt-5.5`; current upstream Humanize may still keep review effort at `high` |
+
+Important: `--codex-model gpt-5.5:xhigh` controls Codex-side calls. It does
+not force Humanize's Claude subagents from Sonnet/Haiku to Opus 4.8. If we want
+all Claude-side agents to use Opus 4.8, that should be a later Humanize plugin
+or config patch, not an assumption made by this README.
+
 ## 1. Clone This Repo
 
 ```bash
@@ -338,8 +385,10 @@ Inside Claude Code, run:
 
 This starts the Humanize loop where Claude implements and Codex reviews. The
 loop state lives under `.humanize/rlcr/<timestamp>/` and should stay untracked.
-The Codex review model is set to `gpt-5.5:xhigh` because this is the model/effort
-we normally use for kernel-design review.
+The Codex-side RLCR model/effort request is `gpt-5.5:xhigh` because this is
+what we normally use for kernel-design review. See the model architecture map
+above for the exact split between Claude main-agent work, Humanize subagents,
+and Codex calls, including the current caveat around final Codex review effort.
 
 ## 9. What The Agent Should Run
 
