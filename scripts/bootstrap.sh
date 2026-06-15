@@ -57,6 +57,7 @@ Install Humanize inside Claude Code if you have not already:
 
   /plugin marketplace add https://github.com/PolyArch/humanize.git
   /plugin install humanize@PolyArch
+  /reload-plugins
 
 Then verify:
 

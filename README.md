@@ -78,34 +78,68 @@ setup; it must pass on the GPU node where profiling is collected.
 
 ## 3. Install Humanize In Claude Code
 
-Start Claude Code anywhere, then run these slash commands:
+Start Claude Code anywhere, then run the slash commands below **one at a
+time**. Wait for each command to finish before entering the next one.
+
+First add the Humanize marketplace:
 
 ```text
 /plugin marketplace add https://github.com/PolyArch/humanize.git
+```
+
+Then install the plugin:
+
+```text
 /plugin install humanize@PolyArch
 ```
 
-Run these slash commands **one at a time**. Do not paste the whole block into
-Claude Code at once; some Claude Code versions concatenate pasted slash-command
-lines and turn the second command into part of the first command's URL.
+Reload Claude Code's plugin registry:
 
-After installing, verify these commands exist:
+```text
+/reload-plugins
+```
+
+Now verify the Humanize commands are available:
 
 ```text
 /humanize:gen-plan
+```
+
+You should also be able to use:
+
+```text
 /humanize:start-rlcr-loop
 /humanize:ask-codex
 ```
 
+Do not paste multiple slash commands at once. Some Claude Code versions
+concatenate pasted slash-command lines and turn the second command into part of
+the first command's URL.
+
+If a previous failed attempt left a bad marketplace entry, remove it first:
+
+```text
+/plugin marketplace remove PolyArch
+```
+
+Then repeat the add, install, reload, and verify steps above.
+
 If your Claude Code build supports shell plugin commands, this equivalent may
-also work:
+also work outside the Claude UI:
 
 ```bash
 claude plugin marketplace add https://github.com/PolyArch/humanize.git
 claude plugin install humanize@PolyArch
 ```
 
-The slash-command path is the most portable.
+After using shell plugin commands, return to Claude Code and run:
+
+```text
+/reload-plugins
+```
+
+If `/reload-plugins` is unavailable or the `/humanize:*` commands still do not
+show up, fully exit and restart Claude Code in the target worktree.
 
 ## 4. Prepare A FlyDSL FlashAttention Worktree
 
