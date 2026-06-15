@@ -232,6 +232,49 @@ The draft is intentionally explicit: it is a plan request for **FlashAttention
 forward on gfx950**, with PR683's test/benchmark harness as the correctness and
 performance contract.
 
+Review the generated draft before asking Humanize to turn it into a plan. From
+the `rocm-KDA-pilot` checkout, you can inspect it in the terminal:
+
+```bash
+bash scripts/review_humanize_artifact.sh /path/to/FlyDSL-fa-kda draft --terminal
+```
+
+If you are already inside the FlyDSL worktree, the direct command is:
+
+```bash
+less .humanize/kernel-agent/draft.md
+```
+
+Or generate an HTML preview:
+
+```bash
+bash scripts/review_humanize_artifact.sh /path/to/FlyDSL-fa-kda draft --html
+```
+
+The generated HTML path is:
+
+```text
+/path/to/FlyDSL-fa-kda/.humanize/kernel-agent/draft.html
+```
+
+To review in a browser from a terminal-only node:
+
+```bash
+bash scripts/review_humanize_artifact.sh /path/to/FlyDSL-fa-kda draft --serve 8765
+```
+
+Then open:
+
+```text
+http://127.0.0.1:8765/draft.html
+```
+
+If the GPU node is remote, forward the port from your laptop first, for example:
+
+```bash
+ssh -L 8765:127.0.0.1:8765 <user>@<gpu-node>
+```
+
 ## 6. Start Claude Code In The FlyDSL Worktree
 
 ```bash
@@ -252,10 +295,23 @@ Inside Claude Code, run:
 /humanize:gen-plan --input .humanize/kernel-agent/draft.md --output .humanize/kernel-agent/refined-plan.md --direct
 ```
 
-Before starting RLCR, skim:
+Before starting RLCR, review:
 
 ```text
 .humanize/kernel-agent/refined-plan.md
+```
+
+From the `rocm-KDA-pilot` checkout:
+
+```bash
+bash scripts/review_humanize_artifact.sh /path/to/FlyDSL-fa-kda refined --terminal
+bash scripts/review_humanize_artifact.sh /path/to/FlyDSL-fa-kda refined --html
+```
+
+Or directly from the FlyDSL worktree:
+
+```bash
+less .humanize/kernel-agent/refined-plan.md
 ```
 
 The plan should clearly preserve:
@@ -277,11 +333,13 @@ draft and run `gen-plan` again.
 Inside Claude Code, run:
 
 ```text
-/humanize:start-rlcr-loop .humanize/kernel-agent/refined-plan.md --skip-quiz --claude-answer-codex --max 12 --codex-model gpt-5.5:high --codex-timeout 5400 --base-branch rocm-kda-base/flydsl-flashattn-gfx950-pr683
+/humanize:start-rlcr-loop .humanize/kernel-agent/refined-plan.md --skip-quiz --claude-answer-codex --max 12 --codex-model gpt-5.5:xhigh --codex-timeout 5400 --base-branch rocm-kda-base/flydsl-flashattn-gfx950-pr683
 ```
 
 This starts the Humanize loop where Claude implements and Codex reviews. The
 loop state lives under `.humanize/rlcr/<timestamp>/` and should stay untracked.
+The Codex review model is set to `gpt-5.5:xhigh` because this is the model/effort
+we normally use for kernel-design review.
 
 ## 9. What The Agent Should Run
 

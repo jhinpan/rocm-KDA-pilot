@@ -75,6 +75,10 @@ cat <<EOF
 Wrote:
   $DRAFT
 
+Review the draft from this rocm-KDA-pilot checkout:
+  bash scripts/review_humanize_artifact.sh "$FLYDSL_ROOT" draft --terminal
+  bash scripts/review_humanize_artifact.sh "$FLYDSL_ROOT" draft --html
+
 Now start Claude Code in:
   $FLYDSL_ROOT
 
@@ -82,5 +86,5 @@ Then run:
   /humanize:gen-plan --input .humanize/kernel-agent/draft.md --output .humanize/kernel-agent/refined-plan.md --direct
 
 After reviewing the refined plan, run:
-  /humanize:start-rlcr-loop .humanize/kernel-agent/refined-plan.md --skip-quiz --claude-answer-codex --max 12 --codex-model gpt-5.5:high --codex-timeout 5400 --base-branch rocm-kda-base/flydsl-flashattn-gfx950-pr683
+  /humanize:start-rlcr-loop .humanize/kernel-agent/refined-plan.md --skip-quiz --claude-answer-codex --max 12 --codex-model gpt-5.5:xhigh --codex-timeout 5400 --base-branch rocm-kda-base/flydsl-flashattn-gfx950-pr683
 EOF
