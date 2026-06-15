@@ -9,6 +9,7 @@ PR683's implementation and test harness.
 ## Source Refs
 
 - FlyDSL upstream: https://github.com/ROCm/FlyDSL
+- FlyDSL working fork: https://github.com/jhinpan/FlyDSL-lab
 - Working baseline: ROCm/FlyDSL PR683
 - Historical related PR: ROCm/FlyDSL PR670
 - Observed on: {{DATE}}
@@ -175,4 +176,3 @@ The completed loop should produce:
 - Profile evidence if profiling influenced the edit.
 - Known unsupported regimes or regressions.
 - Exact reproduction commands.
-

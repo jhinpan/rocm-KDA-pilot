@@ -23,6 +23,10 @@ references:
     repository-code: "https://github.com/ROCm/FlyDSL"
     url: "https://github.com/ROCm/FlyDSL"
   - type: software
+    title: "FlyDSL-lab"
+    repository-code: "https://github.com/jhinpan/FlyDSL-lab"
+    url: "https://github.com/jhinpan/FlyDSL-lab"
+  - type: software
     title: "FlyDSL PR683: FlashAttention PR683 baseline and benchmark harness"
     url: "https://github.com/ROCm/FlyDSL/pull/683"
   - type: software

@@ -9,7 +9,8 @@ Usage:
 Writes:
   .humanize/kernel-agent/draft.md
 
-The FlyDSL worktree should usually be on a branch created from ROCm/FlyDSL PR683.
+The FlyDSL worktree should usually be a jhinpan/FlyDSL-lab fork checkout on a
+branch created from upstream ROCm/FlyDSL PR683.
 EOF
 }
 
@@ -83,4 +84,3 @@ Then run:
 After reviewing the refined plan, run:
   /humanize:start-rlcr-loop .humanize/kernel-agent/refined-plan.md --skip-quiz --claude-answer-codex --max 12 --codex-model gpt-5.5:high --codex-timeout 5400 --base-branch rocm-kda-base/flydsl-flashattn-gfx950-pr683
 EOF
-

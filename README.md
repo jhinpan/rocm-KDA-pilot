@@ -143,16 +143,62 @@ show up, fully exit and restart Claude Code in the target worktree.
 
 ## 4. Prepare A FlyDSL FlashAttention Worktree
 
-Use PR683 as the working baseline. PR670 is useful context, but PR683 already
-absorbs its important FlashAttention work.
+Use our FlyDSL fork as the working repository and keep it synchronized with
+upstream. In this workflow:
+
+- `origin` is our fork: [`jhinpan/FlyDSL-lab`](https://github.com/jhinpan/FlyDSL-lab)
+- `upstream` is AMD's repo: [`ROCm/FlyDSL`](https://github.com/ROCm/FlyDSL)
+- PR683 is the working FlashAttention baseline.
+- PR670 is historical context; PR683 already absorbs its important
+  FlashAttention work.
+
+First sync the fork's `main` branch with upstream using GitHub CLI:
 
 ```bash
-git clone https://github.com/ROCm/FlyDSL.git FlyDSL-fa-kda
+gh repo sync jhinpan/FlyDSL-lab --source ROCm/FlyDSL --branch main
+```
+
+Then clone our fork and add `upstream` explicitly:
+
+```bash
+gh repo clone jhinpan/FlyDSL-lab FlyDSL-fa-kda
 cd FlyDSL-fa-kda
-git fetch origin pull/683/head:pr-683
-git fetch origin pull/670/head:pr-670
+
+git remote add upstream https://github.com/ROCm/FlyDSL.git 2>/dev/null || \
+  git remote set-url upstream https://github.com/ROCm/FlyDSL.git
+git fetch origin main
+git fetch upstream main pull/683/head:pr-683 pull/670/head:pr-670
+```
+
+Create a clean local review base and an active experiment branch from PR683:
+
+```bash
 git switch -c kda/flydsl-flashattn-gfx950-pr683 pr-683
 git branch rocm-kda-base/flydsl-flashattn-gfx950-pr683 pr-683
+```
+
+Push both branches to our fork so runs are reproducible and visible:
+
+```bash
+git push -u origin kda/flydsl-flashattn-gfx950-pr683
+git push -u origin rocm-kda-base/flydsl-flashattn-gfx950-pr683
+```
+
+Branch roles:
+
+| Branch | Role | Push? |
+|---|---|---|
+| `main` | Synced fork mirror of `ROCm/FlyDSL:main` | yes, via `gh repo sync` |
+| `pr-683` | Local copy of upstream PR683 head | no, local reference is enough |
+| `pr-670` | Local copy of upstream PR670 head | no, local reference is enough |
+| `rocm-kda-base/flydsl-flashattn-gfx950-pr683` | Immutable Humanize/Codex review base | yes |
+| `kda/flydsl-flashattn-gfx950-pr683` | Active Humanize optimization branch | yes |
+
+For later experiments, create new branches from the same base and push them:
+
+```bash
+git switch -c kda/flydsl-fa-gfx950-<experiment-name> rocm-kda-base/flydsl-flashattn-gfx950-pr683
+git push -u origin HEAD
 ```
 
 Current reference SHAs observed on 2026-06-15:
@@ -334,6 +380,7 @@ Directly used by this workflow:
 | Project | How ROCm KDA Pilot uses it |
 |---|---|
 | [`ROCm/FlyDSL`](https://github.com/ROCm/FlyDSL) | Target compiler/runtime/kernel repository. The FlashAttention example optimizes its FlyDSL kernels. |
+| [`jhinpan/FlyDSL-lab`](https://github.com/jhinpan/FlyDSL-lab) | Our working FlyDSL fork where KDA experiment branches are pushed. |
 | [`ROCm/FlyDSL#683`](https://github.com/ROCm/FlyDSL/pull/683) | Working FlashAttention baseline and canonical test/benchmark harness for this example. |
 | [`ROCm/FlyDSL#670`](https://github.com/ROCm/FlyDSL/pull/670) | Historical FlashAttention optimization context, especially dwordx4 O-store and split-K direction. |
 | [`PolyArch/humanize`](https://github.com/PolyArch/humanize) | Humanize `gen-plan` and `start-rlcr-loop` command provider. |
