@@ -505,6 +505,94 @@ The final Humanize/KDA result should include:
 - Known regressions or unsupported regimes.
 - Exact reproduction commands.
 
+## 11.5 Results / Experiment Log
+
+Completed runs are tracked under [`results/`](results/) so we can see how the
+workflow actually performs over time, not just whether a single loop finished.
+
+| # | Target | Outcome | Upstream PR | Notes |
+|---|--------|---------|-------------|-------|
+| 01 | FlyDSL FlashAttention fwd, gfx950 (MI350X) | 1 promoted win: dense short-seq (`S<256`) dispatch gate, **~1.56× at S=128**; correctness + coverage preserved | [ROCm/FlyDSL#685](https://github.com/ROCm/FlyDSL/pull/685) (draft) | Narrow by design — see write-up. Methodology feedback: [humanize#193 comment](https://github.com/PolyArch/humanize/issues/193), [humanize#216](https://github.com/PolyArch/humanize/issues/216) |
+
+Full write-up: [`results/experiment-01-flashattn-gfx950.md`](results/experiment-01-flashattn-gfx950.md).
+
+**The honest takeaway from experiment 01:** the loop ran 8 rounds and produced a
+*correct but narrow* win (one small shape family). That was a consequence of the
+draft's reward shape (the lower bound only required "≥1 promoted candidate", so
+the risk-averse loop took the cheapest safe win and stopped), not a hardware
+limit. Getting #683-style **broad** speedups needs a differently-structured
+second round — see below.
+
+## 11.6 Running A Deeper Second Round
+
+A common situation: a first loop runs for many rounds, finishes cleanly, but the
+*optimization* is shallow (a single small case). You do not necessarily need to
+re-architect the workflow — you need a **new draft that rewards depth and
+breadth**, plus a re-based baseline. Here is the recipe.
+
+### Step 1 — Re-base the baseline against `upstream/main`
+
+PR683 is now **merged into `ROCm/FlyDSL@main`**, so the second round no longer
+compares against a PR head. Re-base the working branch and rebuild the baseline:
+
+```bash
+cd <your FlyDSL-lab worktree>
+git fetch upstream
+# new working branch off current upstream/main (which now contains #683):
+git checkout -b kda/flydsl-flashattn-gfx950-deep upstream/main
+# if experiment 01's dispatch gate (ROCm/FlyDSL#685) is not yet merged, apply it
+# first so Round 2 optimizes on top of it, then make THAT the locked baseline.
+```
+
+The Round-2 baseline is **`upstream/main` + the experiment-01 dispatch gate**.
+Beating that is the bar; re-deriving the short-seq dispatch win does **not** count
+as progress.
+
+### Step 2 — Use the DEEP draft, not the original
+
+Generate the plan from
+[`templates/flydsl_flashattn_gfx950_deep_contract.md`](templates/flydsl_flashattn_gfx950_deep_contract.md)
+instead of the original contract. The deep draft differs in the ways that matter:
+
+- **Lower bound forbids a dispatch-only / knob-only win** — Round 2 *must* land a
+  kernel-body change in `flash_attn_gfx950.py`.
+- **Promotion is breadth-scored** — improve a named family of buckets (or the
+  overall geomean), reported per-bucket *and* as a geomean, not "≥1 candidate".
+- **Deep levers are pre-authorized as milestones with sub-steps** (occupancy /
+  VGPR reduction, LDS prefetch-depth re-architecture, provable barrier
+  relaxation) instead of being "last resort" single isolated changes — because
+  the real depth levers are inherently multi-step.
+- It carries forward experiment-01's profiling map (short/mid buckets are
+  memory-bound: `vmcnt` + `s_barrier`; occupancy capped at 4 waves/CU) so Round 2
+  starts from evidence, not from scratch.
+
+### Step 3 — Prepare and run as usual
+
+```bash
+# prepare a worktree with the DEEP draft (see prepare script flags), then:
+/humanize:gen-plan --input <deep-draft> --output <plan> --direct
+/humanize:start-rlcr-loop <plan> --skip-quiz --claude-answer-codex \
+  --max 12 --codex-model gpt-5.5:xhigh --codex-timeout 5400 \
+  --base-branch <round-2 baseline branch>
+```
+
+### Do you need a brand-new draft, or just edit the old one?
+
+**A new draft.** The original contract is structurally biased toward a shallow win
+(its lower bound is satisfied by any one promoted candidate). Editing reward
+shape, promotion criteria, and the "isolated change" granularity rule in place is
+exactly what the deep draft does — so it is kept as a separate template rather
+than mutating the original, which is still the right starting point for a *first*
+pass on a new kernel.
+
+### When even the deep round underperforms
+
+If a deep round also plateaus (the structural levers don't pay off), that is a
+signal the bottleneck is genuinely hardware/algorithmic, not a missed knob. At
+that point the productive output is a **negative-result report** (what was tried,
+the profiling that shows why it can't be cheaply improved) rather than more
+rounds. The candidate ledger already captures this; promote it to a results entry.
+
 ## 12. Repository Hygiene
 
 Keep these untracked:
