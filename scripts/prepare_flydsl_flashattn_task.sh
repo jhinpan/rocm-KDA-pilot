@@ -4,20 +4,33 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  scripts/prepare_flydsl_flashattn_task.sh /path/to/FlyDSL-worktree
+  scripts/prepare_flydsl_flashattn_task.sh [--deep] /path/to/FlyDSL-worktree
 
 Writes:
   .humanize/kernel-agent/draft.md
 
+Options:
+  --deep   Use the deeper Round-2 contract template
+           (templates/flydsl_flashattn_gfx950_deep_contract.md) instead of the
+           default first-pass contract. Use this for a second round that must
+           land a kernel-body change and is scored for breadth, not a single
+           dispatch tweak. See README "Running A Deeper Second Round".
+
 The FlyDSL worktree should usually be a jhinpan/FlyDSL-lab fork checkout on a
-branch created from upstream ROCm/FlyDSL PR683.
+branch created from upstream ROCm/FlyDSL (which now contains PR683).
 EOF
 }
 
-if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
-  usage
-  exit 0
-fi
+DEEP=0
+ARGS=()
+for a in "$@"; do
+  case "$a" in
+    -h|--help) usage; exit 0 ;;
+    --deep) DEEP=1 ;;
+    *) ARGS+=("$a") ;;
+  esac
+done
+set -- "${ARGS[@]}"
 
 if [[ $# -ne 1 ]]; then
   usage >&2
@@ -26,7 +39,11 @@ fi
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FLYDSL_ROOT="$(cd "$1" && pwd)"
-TEMPLATE="$ROOT/templates/flydsl_flashattn_gfx950_contract.md"
+if [[ $DEEP -eq 1 ]]; then
+  TEMPLATE="$ROOT/templates/flydsl_flashattn_gfx950_deep_contract.md"
+else
+  TEMPLATE="$ROOT/templates/flydsl_flashattn_gfx950_contract.md"
+fi
 DRAFT_DIR="$FLYDSL_ROOT/.humanize/kernel-agent"
 DRAFT="$DRAFT_DIR/draft.md"
 
@@ -46,6 +63,11 @@ FLYDSL_MAIN_SHA="$(git ls-remote https://github.com/ROCm/FlyDSL.git refs/heads/m
 PR670_SHA="$(git ls-remote https://github.com/ROCm/FlyDSL.git refs/pull/670/head | awk '{print $1}')"
 PR683_SHA="$(git ls-remote https://github.com/ROCm/FlyDSL.git refs/pull/683/head | awk '{print $1}')"
 TODAY="$(date +%Y-%m-%d)"
+# Round-2 (deep) drafts also reference the experiment-01 dispatch-gate commit, if
+# it is present in this worktree's history (best-effort; left as a placeholder
+# otherwise for the user to fill in).
+ROUND1_GATE_SHA="$(git -C "$FLYDSL_ROOT" log --grep='short seq_len' --grep='_DUALWAVE_MIN_DENSE_SEQ' -i --format=%H -n 1 2>/dev/null || true)"
+[[ -z "$ROUND1_GATE_SHA" ]] && ROUND1_GATE_SHA="{{ROUND1_GATE_SHA}}"
 
 mkdir -p "$DRAFT_DIR"
 
@@ -59,6 +81,7 @@ replacements = {
     "{{FLYDSL_MAIN_SHA}}": "$FLYDSL_MAIN_SHA",
     "{{PR670_SHA}}": "$PR670_SHA",
     "{{PR683_SHA}}": "$PR683_SHA",
+    "{{ROUND1_GATE_SHA}}": "$ROUND1_GATE_SHA",
     "{{WORKTREE_HEAD}}": "$WORKTREE_HEAD",
     "{{WORKTREE_BRANCH}}": "$WORKTREE_BRANCH",
 }
@@ -79,6 +102,11 @@ Review the draft from this rocm-KDA-pilot checkout:
   bash scripts/review_humanize_artifact.sh "$FLYDSL_ROOT" draft --terminal
   bash scripts/review_humanize_artifact.sh "$FLYDSL_ROOT" draft --html
 
+Preflight the loop config BEFORE starting (validates the Codex model name and
+wires/checks the FlyDSL build bindings -- avoids the experiment-01 cancel/restart):
+  bash scripts/preflight.sh "$FLYDSL_ROOT" --codex-model gpt-5.5:xhigh
+  # add --build-from /path/to/built-FlyDSL --fix-bindings if _mlir is missing
+
 Now start Claude Code in:
   $FLYDSL_ROOT
 
@@ -86,5 +114,5 @@ Then run:
   /humanize:gen-plan --input .humanize/kernel-agent/draft.md --output .humanize/kernel-agent/refined-plan.md --direct
 
 After reviewing the refined plan, run:
-  /humanize:start-rlcr-loop .humanize/kernel-agent/refined-plan.md --skip-quiz --claude-answer-codex --max 12 --codex-model gpt-5.5:xhigh --codex-timeout 5400 --base-branch rocm-kda-base/flydsl-flashattn-gfx950-pr683
+  /humanize:start-rlcr-loop .humanize/kernel-agent/refined-plan.md --skip-quiz --claude-answer-codex --max 12 --codex-model gpt-5.5:xhigh --codex-timeout 5400 --base-branch <baseline-branch>
 EOF
