@@ -17,7 +17,7 @@ residual gap is structural.
 | Baseline | upstream/main + Exp-01 dispatch gate #685 (`9afd80b8`; variant branch HEAD) |
 | Scope | specialized variant (DEC-2 lifted → DEC-3); MI350/gfx950 only (DEC-1) |
 | Loop | Humanize RLCR, `--max 12`, `--codex-model gpt-5.5:xhigh` |
-| Rounds | 6 (0–5): baseline+diagnosis → BLOCK_M=64 kill → MG-1 fix+vmcnt kill → QK-depth → AC-6+report → evidence finalization |
+| Rounds | a multi-round RLCR loop (baseline+diagnosis → BLOCK_M=64 kill → MG-1 fix+vmcnt kill → QK-depth → AC-6+report → evidence/provenance finalization); see the loop goal-tracker for the exact round/review history |
 | Outcome | **No win landed — evidence-backed negative result.** Best lever (QK-depth) = ~1%, below the ≥5% bar. |
 | Source delta | `flash_attn_generic.py`: provider-forcing selector + true forced-dualwave + pure dispatch-predicate refactor; `tests/unit/test_flash_attn_dispatch_routing.py`: no-GPU routing test. Byte-identical when unset; no kernel-math change. |
 
@@ -122,11 +122,12 @@ why each cheap/medium lever fails, and that the remaining work is structural.
 
 ## Process notes (workflow)
 
-- 6 rounds (0–5), 5 Codex reviews; the loop correctly pushed back on premature
-  round-boundary deferrals and "COMPLETE" overclaims until the must-win lever was
-  actually executed and the full evidence package produced. The terminal state is
-  a **non-COMPLETE Lower-Bound negative result accepted by the user (DEC-8)** — not
-  an all-ACs-met COMPLETE (AC-4 is explicitly not met).
+- A multi-round RLCR loop (exact round/review counts in the loop goal-tracker); the
+  loop correctly pushed back on premature round-boundary deferrals and "COMPLETE"
+  overclaims until the must-win lever was actually executed and the full evidence
+  package produced. The terminal state is a **non-COMPLETE Lower-Bound negative
+  result accepted by the user (DEC-8)** — not an all-ACs-met COMPLETE (AC-4 is
+  explicitly not met).
 - Reusable tooling from Exp-02 carried over (pipeline_sim, resource probes, OFF/ON
   ISA capture, flyprof bundles); added a provider-forcing selector that makes
   per-provider attribution reproducible.
@@ -140,6 +141,11 @@ FlyDSL source commits on `kda/flydsl-flashattn-gfx950-variant` (baseline
 (forced-dualwave fix), `4a7167ea` (r3 boundary), `99280827` (pure dispatch-predicate
 refactor + no-GPU routing test), `c3c7002a` (r4 boundary), `8a795c5c` (last
 non-empty source change: stale-comment cleanup), `2c1a231c` (r5 boundary),
-`bea21e39` (r6 boundary), `4257ce77` (r7 boundary, current HEAD). This report:
+`bea21e39` (r6 boundary), `4257ce77` (r7 boundary). The current FlyDSL HEAD and the
+final pushed commit of this report are recorded exactly in the loop's git-ignored
+provenance (`.humanize/rlcr/2026-06-16_18-35-14/artifacts/baseline/environment.txt`
+and `docs/optimization-ledger.md`) — a tracked file cannot stably embed its own
+final commit SHA, so the exact endpoint is kept there. Prior report chain:
 rocm-KDA-pilot `bf81848` (initial) → `8a346ca` (r4 dispatch correction) →
-`8ca80d9` (r5 provenance) → `d66f6ae` (r6 framing) → `+r7 amendment` (this commit).
+`8ca80d9` (r5 provenance) → `d66f6ae` (r6 framing) → subsequent provenance
+amendments.
