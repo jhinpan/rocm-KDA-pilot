@@ -7,10 +7,10 @@
     </marker>
     <style>
       .bg { fill: #f7fafc; }
-      .title { fill: #111827; font: 700 28px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-      .subtitle { fill: #4b5563; font: 500 15px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .title { fill: #111827; font: 700 28px Arial, Helvetica, sans-serif; }
+      .subtitle { fill: #4b5563; font: 500 15px Arial, Helvetica, sans-serif; }
       .lane { fill: #ffffff; stroke: #d1d5db; stroke-width: 1.4; rx: 14; }
-      .lane-title { fill: #374151; font: 700 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; letter-spacing: .04em; }
+      .lane-title { fill: #374151; font: 700 13px Arial, Helvetica, sans-serif; letter-spacing: .04em; }
       .box { fill: #ffffff; stroke: #cbd5e1; stroke-width: 1.6; rx: 10; }
       .repo { fill: #ecfeff; stroke: #0891b2; }
       .worktree { fill: #f0fdf4; stroke: #16a34a; }
@@ -19,10 +19,10 @@
       .state { fill: #f8fafc; stroke: #64748b; stroke-dasharray: 6 5; }
       .accept { fill: #fdf2f8; stroke: #db2777; }
       .warn { fill: #fefce8; stroke: #ca8a04; }
-      .h1 { fill: #111827; font: 700 17px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-      .txt { fill: #374151; font: 500 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-      .tiny { fill: #4b5563; font: 500 12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-      .mono { fill: #1f2937; font: 600 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      .h1 { fill: #111827; font: 700 16px Arial, Helvetica, sans-serif; }
+      .txt { fill: #374151; font: 500 13px Arial, Helvetica, sans-serif; }
+      .tiny { fill: #4b5563; font: 500 12px Arial, Helvetica, sans-serif; }
+      .mono { fill: #1f2937; font: 600 12px Menlo, Consolas, monospace; }
       .badge { fill: #ffffff; stroke: #d1d5db; stroke-width: 1.1; rx: 13; }
       .badge-codex { fill: #eef2ff; stroke: #818cf8; }
       .badge-claude { fill: #fff7ed; stroke: #fb923c; }
@@ -34,7 +34,7 @@
 
   <rect class="bg" width="1320" height="760"/>
   <text class="title" x="42" y="50">ROCm KDA Pilot: FlyDSL FlashAttention Workflow and Model Map</text>
-  <text class="subtitle" x="42" y="78">Kernel code lands in the FlyDSL experiment branch. Humanize state is the checkpoint. Codex flags affect Codex calls, not Claude subagent model declarations.</text>
+  <text class="subtitle" x="42" y="78">Kernel code lands in the FlyDSL experiment branch. Humanize state is the checkpoint; Codex flags only affect Codex calls.</text>
 
   <rect class="lane" x="34" y="106" width="1252" height="145"/>
   <text class="lane-title" x="58" y="132">REPOSITORIES AND BRANCHES</text>
@@ -50,8 +50,8 @@
 
   <rect class="box accept" x="826" y="145" width="400" height="84"/>
   <text class="h1" x="846" y="172">Acceptance comparison</text>
-  <text class="mono" x="846" y="196">diff against rocm-kda-base/flydsl-flashattn-gfx950-pr683</text>
-  <text class="txt" x="846" y="218">Tests, benchmark tables, profile evidence</text>
+  <text class="txt" x="846" y="194">Diff against review base:</text>
+  <text class="mono" x="846" y="215">rocm-kda-base/flydsl-flashattn-gfx950-pr683</text>
 
   <path class="line" d="M 318 187 L 384 187"/>
   <path class="line" d="M 752 187 L 818 187"/>
@@ -63,10 +63,10 @@
   <text class="h1" x="78" y="358">1. Draft and plan</text>
   <text class="mono" x="78" y="383">prepare_*.sh</text>
   <text class="mono" x="78" y="404">/humanize:gen-plan</text>
-  <rect class="badge badge-claude" x="78" y="423" width="158" height="27"/>
+  <rect class="badge badge-claude" x="78" y="423" width="175" height="27"/>
   <text class="tiny" x="91" y="441">Claude main: Opus 4.8</text>
-  <rect class="badge badge-warn" x="78" y="456" width="128" height="27"/>
-  <text class="tiny" x="91" y="474">draft check: Haiku</text>
+  <rect class="badge badge-warn" x="78" y="456" width="164" height="27"/>
+  <text class="tiny" x="91" y="474">Draft check: Haiku</text>
 
   <rect class="box state" x="362" y="330" width="250" height="148"/>
   <text class="h1" x="382" y="358">Checkpoint files</text>
@@ -74,14 +74,14 @@
   <text class="mono" x="382" y="404">state.md</text>
   <text class="mono" x="382" y="425">round-N-summary.md</text>
   <text class="mono" x="382" y="446">round-N-review-result.md</text>
-  <text class="tiny" x="382" y="468">State is hook-managed, not hand-edited</text>
+  <text class="tiny" x="382" y="468">Hook-managed; do not hand-edit</text>
 
   <rect class="box humanize" x="672" y="330" width="260" height="148"/>
   <text class="h1" x="692" y="358">2. RLCR implementation</text>
   <text class="mono" x="692" y="383">/humanize:start-rlcr-loop</text>
-  <rect class="badge badge-claude" x="692" y="402" width="170" height="27"/>
-  <text class="tiny" x="705" y="420">coding: Claude Opus 4.8</text>
-  <rect class="badge badge-warn" x="692" y="435" width="198" height="27"/>
+  <rect class="badge badge-claude" x="692" y="402" width="188" height="27"/>
+  <text class="tiny" x="705" y="420">Coding: Claude Opus 4.8</text>
+  <rect class="badge badge-warn" x="692" y="435" width="220" height="27"/>
   <text class="tiny" x="705" y="453">compliance checker: Sonnet</text>
 
   <rect class="box codex" x="992" y="330" width="245" height="148"/>
@@ -100,15 +100,17 @@
   <rect class="lane" x="34" y="594" width="1252" height="116"/>
   <text class="lane-title" x="58" y="620">REVIEW, FINALIZE, AND CURRENT MODEL CAVEATS</text>
 
-  <rect class="box codex" x="58" y="642" width="330" height="44"/>
-  <text class="h1" x="78" y="670">Review phase: codex review --base</text>
-  <text class="mono" x="294" y="670">gpt-5.5</text>
+  <rect class="box codex" x="58" y="638" width="330" height="58"/>
+  <text class="h1" x="78" y="662">Review phase</text>
+  <text class="mono" x="78" y="682">codex review --base, gpt-5.5</text>
 
-  <rect class="box warn" x="436" y="642" width="390" height="44"/>
-  <text class="h1" x="456" y="670">Current caveat: final review effort may still be high</text>
+  <rect class="box warn" x="436" y="638" width="390" height="58"/>
+  <text class="h1" x="456" y="662">Current caveat</text>
+  <text class="txt" x="456" y="683">Final review effort may still be high</text>
 
-  <rect class="box accept" x="874" y="642" width="350" height="44"/>
-  <text class="h1" x="894" y="670">Future patch target: all Claude subagents Opus 4.8</text>
+  <rect class="box accept" x="874" y="638" width="350" height="58"/>
+  <text class="h1" x="894" y="662">Future patch target</text>
+  <text class="txt" x="894" y="683">All Claude subagents use Opus 4.8</text>
 
   <path class="line" d="M 1237 404 C 1260 404, 1260 664, 1232 664"/>
   <path class="line" d="M 388 664 L 428 664"/>
