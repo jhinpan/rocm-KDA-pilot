@@ -122,9 +122,11 @@ why each cheap/medium lever fails, and that the remaining work is structural.
 
 ## Process notes (workflow)
 
-- 4 rounds, 3 Codex reviews; the loop correctly pushed back on premature
-  round-boundary deferrals until the must-win lever was actually executed and the
-  full evidence package produced.
+- 6 rounds (0–5), 5 Codex reviews; the loop correctly pushed back on premature
+  round-boundary deferrals and "COMPLETE" overclaims until the must-win lever was
+  actually executed and the full evidence package produced. The terminal state is
+  a **non-COMPLETE Lower-Bound negative result accepted by the user (DEC-8)** — not
+  an all-ACs-met COMPLETE (AC-4 is explicitly not met).
 - Reusable tooling from Exp-02 carried over (pipeline_sim, resource probes, OFF/ON
   ISA capture, flyprof bundles); added a provider-forcing selector that makes
   per-provider attribution reproducible.
@@ -135,7 +137,9 @@ Loop dir `.humanize/rlcr/2026-06-16_18-35-14/` (FlyDSL worktree, untracked):
 qk_prefetch3/, ac6_v2/}`, `docs/attempts.jsonl`, `docs/optimization-ledger.md`.
 FlyDSL source commits on `kda/flydsl-flashattn-gfx950-variant` (baseline
 `9afd80b8`): `42321df8` (diagnosis), `d3a418d1` (provider selector), `6a5ddc17`
-(forced-dualwave fix), `99280827` (pure dispatch-predicate refactor + no-GPU
-routing test), `c3c7002a` (round-4 boundary), `8a795c5c` (stale-comment cleanup).
-This report: rocm-KDA-pilot `bf81848` (initial), `8a346ca` (round-4 dispatch
-correction), + this round-5 amendment.
+(forced-dualwave fix), `4a7167ea` (r3 boundary), `99280827` (pure dispatch-predicate
+refactor + no-GPU routing test), `c3c7002a` (r4 boundary), `8a795c5c` (last
+non-empty source change: stale-comment cleanup), `2c1a231c` (r5 boundary). Latest
+round-boundary commit is the current HEAD. This report: rocm-KDA-pilot `bf81848`
+(initial) → `8a346ca` (r4 dispatch correction) → `8ca80d9` (r5 provenance) → this
+round-6 amendment.
