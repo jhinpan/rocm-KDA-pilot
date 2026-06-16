@@ -1,116 +1,118 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="820" viewBox="0 0 1280 820" role="img" aria-labelledby="title desc">
-  <title id="title">ROCm KDA Pilot model architecture map</title>
-  <desc id="desc">Architecture map for the FlyDSL FlashAttention Humanize RLCR workflow, showing repositories, branches, commands, agents, and model assignments.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="1320" height="760" viewBox="0 0 1320 760" role="img" aria-labelledby="title desc">
+  <title id="title">ROCm KDA Pilot workflow and model map</title>
+  <desc id="desc">A pipeline diagram showing the ROCm KDA Pilot repo, the FlyDSL experiment branch, Humanize plan and RLCR phases, Codex review phases, checkpoint files, and the current model assignments.</desc>
   <defs>
-    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-      <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#1f2937"/>
     </marker>
     <style>
-      .bg { fill: #f8fafc; }
-      .title { fill: #0f172a; font: 700 28px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-      .subtitle { fill: #475569; font: 500 15px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .bg { fill: #f7fafc; }
+      .title { fill: #111827; font: 700 28px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .subtitle { fill: #4b5563; font: 500 15px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .lane { fill: #ffffff; stroke: #d1d5db; stroke-width: 1.4; rx: 14; }
+      .lane-title { fill: #374151; font: 700 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; letter-spacing: .04em; }
       .box { fill: #ffffff; stroke: #cbd5e1; stroke-width: 1.6; rx: 10; }
       .repo { fill: #ecfeff; stroke: #0891b2; }
-      .flydsl { fill: #f0fdf4; stroke: #16a34a; }
+      .worktree { fill: #f0fdf4; stroke: #16a34a; }
       .humanize { fill: #fff7ed; stroke: #ea580c; }
       .codex { fill: #eef2ff; stroke: #4f46e5; }
-      .review { fill: #fdf2f8; stroke: #db2777; }
-      .future { fill: #fefce8; stroke: #ca8a04; stroke-dasharray: 7 5; }
-      .label { fill: #0f172a; font: 700 16px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-      .small { fill: #334155; font: 500 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-      .tiny { fill: #475569; font: 500 12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-      .mono { fill: #1e293b; font: 600 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-      .pill { fill: #ffffff; stroke: #cbd5e1; stroke-width: 1.2; rx: 14; }
-      .line { stroke: #334155; stroke-width: 2; fill: none; marker-end: url(#arrow); }
-      .softline { stroke: #64748b; stroke-width: 1.6; fill: none; marker-end: url(#arrow); stroke-dasharray: 5 5; }
-      .note { fill: #7c2d12; font: 700 12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .state { fill: #f8fafc; stroke: #64748b; stroke-dasharray: 6 5; }
+      .accept { fill: #fdf2f8; stroke: #db2777; }
+      .warn { fill: #fefce8; stroke: #ca8a04; }
+      .h1 { fill: #111827; font: 700 17px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .txt { fill: #374151; font: 500 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .tiny { fill: #4b5563; font: 500 12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .mono { fill: #1f2937; font: 600 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      .badge { fill: #ffffff; stroke: #d1d5db; stroke-width: 1.1; rx: 13; }
+      .badge-codex { fill: #eef2ff; stroke: #818cf8; }
+      .badge-claude { fill: #fff7ed; stroke: #fb923c; }
+      .badge-warn { fill: #fefce8; stroke: #facc15; }
+      .line { stroke: #1f2937; stroke-width: 2; fill: none; marker-end: url(#arrow); }
+      .softline { stroke: #64748b; stroke-width: 1.7; fill: none; stroke-dasharray: 5 5; marker-end: url(#arrow); }
     </style>
   </defs>
 
-  <rect class="bg" x="0" y="0" width="1280" height="820"/>
-  <text class="title" x="48" y="54">ROCm KDA Pilot: FlyDSL FlashAttention Humanize Model Map</text>
-  <text class="subtitle" x="48" y="82">Current intended workflow for gfx950 PR683 optimization. Model labels describe present behavior; they do not yet force all Claude subagents to Opus 4.8.</text>
+  <rect class="bg" width="1320" height="760"/>
+  <text class="title" x="42" y="50">ROCm KDA Pilot: FlyDSL FlashAttention Workflow and Model Map</text>
+  <text class="subtitle" x="42" y="78">Kernel code lands in the FlyDSL experiment branch. Humanize state is the checkpoint. Codex flags affect Codex calls, not Claude subagent model declarations.</text>
 
-  <rect class="box repo" x="48" y="120" width="330" height="145"/>
-  <text class="label" x="70" y="151">Workflow repo</text>
-  <text class="mono" x="70" y="179">jhinpan/rocm-KDA-pilot:main</text>
-  <text class="small" x="70" y="206">Templates, scripts, skills, docs</text>
-  <text class="small" x="70" y="230">No kernel result is accepted here</text>
+  <rect class="lane" x="34" y="106" width="1252" height="145"/>
+  <text class="lane-title" x="58" y="132">REPOSITORIES AND BRANCHES</text>
 
-  <rect class="box flydsl" x="475" y="120" width="370" height="145"/>
-  <text class="label" x="497" y="151">FlyDSL experiment repo</text>
-  <text class="mono" x="497" y="179">jhinpan/FlyDSL-lab</text>
-  <text class="mono" x="497" y="204">kda/flydsl-flashattn-gfx950-pr683</text>
-  <text class="small" x="497" y="230">Active branch where code changes land</text>
+  <rect class="box repo" x="58" y="152" width="260" height="70"/>
+  <text class="h1" x="78" y="179">Workflow repo</text>
+  <text class="mono" x="78" y="203">jhinpan/rocm-KDA-pilot:main</text>
 
-  <rect class="box review" x="938" y="120" width="294" height="145"/>
-  <text class="label" x="960" y="151">Acceptance base</text>
-  <text class="mono" x="960" y="179">rocm-kda-base/</text>
-  <text class="mono" x="960" y="201">flydsl-flashattn-gfx950-pr683</text>
-  <text class="small" x="960" y="230">Review diff and perf evidence against this</text>
+  <rect class="box worktree" x="392" y="145" width="360" height="84"/>
+  <text class="h1" x="412" y="172">FlyDSL experiment branch</text>
+  <text class="mono" x="412" y="196">jhinpan/FlyDSL-lab</text>
+  <text class="mono" x="412" y="216">kda/flydsl-flashattn-gfx950-pr683</text>
 
-  <path class="line" d="M 378 192 C 415 192, 433 192, 468 192"/>
-  <path class="line" d="M 848 192 C 880 192, 900 192, 930 192"/>
+  <rect class="box accept" x="826" y="145" width="400" height="84"/>
+  <text class="h1" x="846" y="172">Acceptance comparison</text>
+  <text class="mono" x="846" y="196">diff against rocm-kda-base/flydsl-flashattn-gfx950-pr683</text>
+  <text class="txt" x="846" y="218">Tests, benchmark tables, profile evidence</text>
 
-  <rect class="box humanize" x="80" y="325" width="290" height="160"/>
-  <text class="label" x="102" y="356">1. Prepare draft</text>
-  <text class="mono" x="102" y="384">prepare_flydsl_flashattn_task.sh</text>
-  <text class="small" x="102" y="414">Writes .humanize/kernel-agent/draft.md</text>
-  <text class="small" x="102" y="438">No model call here</text>
-  <text class="tiny" x="102" y="462">Review in terminal or HTML before gen-plan</text>
+  <path class="line" d="M 318 187 L 384 187"/>
+  <path class="line" d="M 752 187 L 818 187"/>
 
-  <rect class="box humanize" x="420" y="325" width="380" height="210"/>
-  <text class="label" x="442" y="356">2. gen-plan</text>
-  <text class="mono" x="442" y="384">/humanize:gen-plan --direct</text>
-  <rect class="pill" x="442" y="407" width="180" height="28"/>
-  <text class="tiny" x="456" y="426">Claude main: Opus 4.8</text>
-  <rect class="pill" x="442" y="443" width="204" height="28"/>
-  <text class="tiny" x="456" y="462">draft checker: Haiku</text>
-  <rect class="pill" x="442" y="479" width="282" height="28"/>
-  <text class="tiny" x="456" y="498">Codex plan review: configured/default</text>
-  <text class="small" x="442" y="522">Output: refined-plan.md</text>
+  <rect class="lane" x="34" y="280" width="1252" height="285"/>
+  <text class="lane-title" x="58" y="306">HUMANIZE LOOP INSIDE THE FLYDSL WORKTREE</text>
 
-  <rect class="box humanize" x="850" y="325" width="350" height="270"/>
-  <text class="label" x="872" y="356">3. start-rlcr-loop</text>
-  <text class="mono" x="872" y="384">--codex-model gpt-5.5:xhigh</text>
-  <rect class="pill" x="872" y="407" width="250" height="28"/>
-  <text class="tiny" x="886" y="426">compliance checker: Sonnet</text>
-  <rect class="pill" x="872" y="443" width="228" height="28"/>
-  <text class="tiny" x="886" y="462">coding: Claude Opus 4.8</text>
-  <rect class="pill" x="872" y="479" width="276" height="28"/>
-  <text class="tiny" x="886" y="498">ask-codex/analyze: GPT-5.5 xhigh</text>
-  <rect class="pill" x="872" y="515" width="276" height="28"/>
-  <text class="tiny" x="886" y="534">stop-hook review: GPT-5.5 xhigh</text>
-  <rect class="pill" x="872" y="551" width="285" height="28"/>
-  <text class="tiny" x="886" y="570">final codex review: GPT-5.5 high*</text>
+  <rect class="box humanize" x="58" y="330" width="245" height="148"/>
+  <text class="h1" x="78" y="358">1. Draft and plan</text>
+  <text class="mono" x="78" y="383">prepare_*.sh</text>
+  <text class="mono" x="78" y="404">/humanize:gen-plan</text>
+  <rect class="badge badge-claude" x="78" y="423" width="158" height="27"/>
+  <text class="tiny" x="91" y="441">Claude main: Opus 4.8</text>
+  <rect class="badge badge-warn" x="78" y="456" width="128" height="27"/>
+  <text class="tiny" x="91" y="474">draft check: Haiku</text>
 
-  <path class="line" d="M 225 265 C 225 292, 225 301, 225 318"/>
-  <path class="line" d="M 370 405 C 390 405, 398 405, 414 405"/>
-  <path class="line" d="M 800 430 C 820 430, 830 430, 844 430"/>
-  <path class="softline" d="M 660 265 C 660 285, 660 303, 660 318"/>
-  <path class="softline" d="M 1025 265 C 1025 286, 1025 303, 1025 318"/>
+  <rect class="box state" x="362" y="330" width="250" height="148"/>
+  <text class="h1" x="382" y="358">Checkpoint files</text>
+  <text class="mono" x="382" y="383">.humanize/rlcr/&lt;time&gt;/</text>
+  <text class="mono" x="382" y="404">state.md</text>
+  <text class="mono" x="382" y="425">round-N-summary.md</text>
+  <text class="mono" x="382" y="446">round-N-review-result.md</text>
+  <text class="tiny" x="382" y="468">State is hook-managed, not hand-edited</text>
 
-  <rect class="box codex" x="120" y="640" width="330" height="115"/>
-  <text class="label" x="142" y="672">Codex side</text>
-  <text class="small" x="142" y="700">Controlled by Humanize Codex flags/config</text>
-  <text class="mono" x="142" y="725">gpt-5.5:xhigh</text>
-  <text class="tiny" x="142" y="747">Does not change Claude subagent models</text>
+  <rect class="box humanize" x="672" y="330" width="260" height="148"/>
+  <text class="h1" x="692" y="358">2. RLCR implementation</text>
+  <text class="mono" x="692" y="383">/humanize:start-rlcr-loop</text>
+  <rect class="badge badge-claude" x="692" y="402" width="170" height="27"/>
+  <text class="tiny" x="705" y="420">coding: Claude Opus 4.8</text>
+  <rect class="badge badge-warn" x="692" y="435" width="198" height="27"/>
+  <text class="tiny" x="705" y="453">compliance checker: Sonnet</text>
 
-  <rect class="box future" x="500" y="640" width="330" height="115"/>
-  <text class="label" x="522" y="672">Desired future patch</text>
-  <text class="small" x="522" y="700">Force or document all Claude subagents</text>
-  <text class="mono" x="522" y="725">Opus 4.8</text>
-  <text class="tiny" x="522" y="747">Requires Humanize plugin/config changes</text>
+  <rect class="box codex" x="992" y="330" width="245" height="148"/>
+  <text class="h1" x="1012" y="358">3. Codex gate</text>
+  <text class="mono" x="1012" y="383">codex exec</text>
+  <rect class="badge badge-codex" x="1012" y="402" width="165" height="27"/>
+  <text class="tiny" x="1025" y="420">gpt-5.5:xhigh</text>
+  <text class="txt" x="1012" y="452">COMPLETE enters review</text>
+  <text class="txt" x="1012" y="472">otherwise next round prompt</text>
 
-  <rect class="box review" x="880" y="640" width="310" height="115"/>
-  <text class="label" x="902" y="672">Final acceptance</text>
-  <text class="small" x="902" y="700">Validate committed FlyDSL changes</text>
-  <text class="mono" x="902" y="725">git diff base...HEAD</text>
-  <text class="tiny" x="902" y="747">Tests, benchmark tables, profile evidence</text>
+  <path class="line" d="M 303 404 L 354 404"/>
+  <path class="line" d="M 612 404 L 664 404"/>
+  <path class="line" d="M 932 404 L 984 404"/>
+  <path class="softline" d="M 1114 478 C 1114 530, 493 530, 493 481"/>
 
-  <path class="line" d="M 1025 595 C 1025 612, 1025 623, 1025 634"/>
-  <path class="softline" d="M 865 565 C 780 610, 690 624, 450 680"/>
-  <path class="softline" d="M 1025 595 C 950 625, 885 641, 830 680"/>
+  <rect class="lane" x="34" y="594" width="1252" height="116"/>
+  <text class="lane-title" x="58" y="620">REVIEW, FINALIZE, AND CURRENT MODEL CAVEATS</text>
 
-  <text class="note" x="48" y="798">* Current upstream Humanize behavior may keep the final codex review effort at high even when RLCR codex exec/review-summary uses xhigh. Verify before relying on all-xhigh review.</text>
+  <rect class="box codex" x="58" y="642" width="330" height="44"/>
+  <text class="h1" x="78" y="670">Review phase: codex review --base</text>
+  <text class="mono" x="294" y="670">gpt-5.5</text>
+
+  <rect class="box warn" x="436" y="642" width="390" height="44"/>
+  <text class="h1" x="456" y="670">Current caveat: final review effort may still be high</text>
+
+  <rect class="box accept" x="874" y="642" width="350" height="44"/>
+  <text class="h1" x="894" y="670">Future patch target: all Claude subagents Opus 4.8</text>
+
+  <path class="line" d="M 1237 404 C 1260 404, 1260 664, 1232 664"/>
+  <path class="line" d="M 388 664 L 428 664"/>
+  <path class="line" d="M 826 664 L 866 664"/>
+
+  <text class="tiny" x="58" y="735">Correct model spelling for this workflow: --codex-model gpt-5.5:xhigh. Do not use gpt5.5:xhigh.</text>
 </svg>

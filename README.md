@@ -3,9 +3,12 @@
 ROCm KDA Pilot is a small workflow repo for running a BBuf/KDA-Pilot-style
 Humanize loop on AMD ROCm kernel optimization tasks.
 
-The first supported example is **optimizing FlyDSL FlashAttention forward on
-gfx950 / MI350X-MI355X**, starting from ROCm/FlyDSL PR683 and using PR670 as
-historical context.
+The first supported example is **optimizing
+[`ROCm/FlyDSL`](https://github.com/ROCm/FlyDSL) FlashAttention forward on
+gfx950 / MI350X-MI355X**, starting from
+[`ROCm/FlyDSL#683`](https://github.com/ROCm/FlyDSL/pull/683) and using
+[`ROCm/FlyDSL#670`](https://github.com/ROCm/FlyDSL/pull/670) as historical
+context.
 
 This repo assumes only this much is already installed on your Docker image or
 node:
@@ -195,9 +198,20 @@ upstream. In this workflow:
 
 - `origin` is our fork: [`jhinpan/FlyDSL-lab`](https://github.com/jhinpan/FlyDSL-lab)
 - `upstream` is AMD's repo: [`ROCm/FlyDSL`](https://github.com/ROCm/FlyDSL)
-- PR683 is the working FlashAttention baseline.
-- PR670 is historical context; PR683 already absorbs its important
-  FlashAttention work.
+- [`ROCm/FlyDSL#683`](https://github.com/ROCm/FlyDSL/pull/683) is the working
+  FlashAttention baseline for this example. It adds a gfx950 dualwave
+  software-pipelined FMHA forward kernel, split-K support, packed-QKV variable
+  length routing through `cu_seqlens`, arbitrary `seq_len >= 1` coverage, and a
+  gfx942-safe generic fallback. Its `tests/kernels/test_flash_attn_fwd.py`
+  harness is the correctness and benchmark contract for this workflow.
+- [`ROCm/FlyDSL#670`](https://github.com/ROCm/FlyDSL/pull/670) is historical
+  optimization context. It introduced the dwordx4 O-store direction for the
+  gfx950 dualwave FlashAttention forward path and explored flash-decoding
+  split-K via `num_kv_splits`.
+  [`ROCm/FlyDSL#683`](https://github.com/ROCm/FlyDSL/pull/683) already absorbs
+  the important FlashAttention pieces, so use
+  [`ROCm/FlyDSL#670`](https://github.com/ROCm/FlyDSL/pull/670) as prior art
+  rather than as the active baseline branch.
 
 First sync the fork's `main` branch with upstream using GitHub CLI:
 
@@ -217,7 +231,8 @@ git fetch origin main
 git fetch upstream main pull/683/head:pr-683 pull/670/head:pr-670
 ```
 
-Create a clean local review base and an active experiment branch from PR683:
+Create a clean local review base and an active experiment branch from
+[`ROCm/FlyDSL#683`](https://github.com/ROCm/FlyDSL/pull/683):
 
 ```bash
 git switch -c kda/flydsl-flashattn-gfx950-pr683 pr-683
@@ -236,8 +251,8 @@ Branch roles:
 | Branch | Role | Push? |
 |---|---|---|
 | `main` | Synced fork mirror of `ROCm/FlyDSL:main` | yes, via `gh repo sync` |
-| `pr-683` | Local copy of upstream PR683 head | no, local reference is enough |
-| `pr-670` | Local copy of upstream PR670 head | no, local reference is enough |
+| `pr-683` | Local copy of upstream [`ROCm/FlyDSL#683`](https://github.com/ROCm/FlyDSL/pull/683) head | no, local reference is enough |
+| `pr-670` | Local copy of upstream [`ROCm/FlyDSL#670`](https://github.com/ROCm/FlyDSL/pull/670) head | no, local reference is enough |
 | `rocm-kda-base/flydsl-flashattn-gfx950-pr683` | Immutable Humanize/Codex review base | yes |
 | `kda/flydsl-flashattn-gfx950-pr683` | Active Humanize optimization branch | yes |
 
@@ -250,11 +265,11 @@ git push -u origin HEAD
 
 Current reference SHAs observed on 2026-06-15:
 
-```text
-ROCm/FlyDSL main: 9317e117d9fb201261544f2f2079cd03ac7d32aa
-PR670 head:       ca36714e80e675528c2ecd66083cdbc2be6dfb5a
-PR683 head:       8fb654a062cd2de7627efb237902f61e726727ff
-```
+| Ref | SHA |
+|---|---|
+| [`ROCm/FlyDSL:main`](https://github.com/ROCm/FlyDSL/tree/main) | `9317e117d9fb201261544f2f2079cd03ac7d32aa` |
+| [`ROCm/FlyDSL#670`](https://github.com/ROCm/FlyDSL/pull/670) | `ca36714e80e675528c2ecd66083cdbc2be6dfb5a` |
+| [`ROCm/FlyDSL#683`](https://github.com/ROCm/FlyDSL/pull/683) | `8fb654a062cd2de7627efb237902f61e726727ff` |
 
 If these refs changed, use the latest PR head and record the new SHA in the
 draft before starting RLCR.
@@ -276,8 +291,9 @@ The script writes:
 It also appends `.humanize*` to the FlyDSL worktree `.gitignore` if missing.
 
 The draft is intentionally explicit: it is a plan request for **FlashAttention
-forward on gfx950**, with PR683's test/benchmark harness as the correctness and
-performance contract.
+forward on gfx950**, with
+[`ROCm/FlyDSL#683`](https://github.com/ROCm/FlyDSL/pull/683)'s test/benchmark
+harness as the correctness and performance contract.
 
 Review the generated draft before asking Humanize to turn it into a plan. From
 the `rocm-KDA-pilot` checkout, you can inspect it in the terminal:
@@ -363,14 +379,16 @@ less .humanize/kernel-agent/refined-plan.md
 
 The plan should clearly preserve:
 
-- PR683 correctness semantics.
+- [`ROCm/FlyDSL#683`](https://github.com/ROCm/FlyDSL/pull/683) correctness
+  semantics.
 - gfx950 dualwave SWP focus.
 - bf16/fp16, causal/non-causal, MHA/GQA.
 - varlen `cu_seqlens` coverage.
 - arbitrary `seq_len >= 1`.
 - split-K behavior.
 - gfx942 fallback safety.
-- PR683 `tests/kernels/test_flash_attn_fwd.py` as the test/bench harness.
+- [`ROCm/FlyDSL#683`](https://github.com/ROCm/FlyDSL/pull/683)
+  `tests/kernels/test_flash_attn_fwd.py` as the test/bench harness.
 
 If it tries to replace the harness with a toy benchmark, regenerate or edit the
 draft and run `gen-plan` again.
@@ -423,7 +441,8 @@ Quick correctness smoke:
 HIP_VISIBLE_DEVICES=$GPU python3 tests/kernels/test_flash_attn_fwd.py --dtype bf16 --causal --warmup 3 --iters 5
 ```
 
-Full PR683 correctness/perf sweep:
+Full [`ROCm/FlyDSL#683`](https://github.com/ROCm/FlyDSL/pull/683)
+correctness/perf sweep:
 
 ```bash
 HIP_VISIBLE_DEVICES=$GPU python3 tests/kernels/test_flash_attn_fwd.py --warmup 10 --iters 20
@@ -460,7 +479,8 @@ flyprof run flash_attn_fwd --worktree "$PWD" --gpu "$GPU" --bundle "profile/flyd
 
 A candidate is promotable only if:
 
-- The relevant PR683 correctness rows pass.
+- The relevant [`ROCm/FlyDSL#683`](https://github.com/ROCm/FlyDSL/pull/683)
+  correctness rows pass.
 - No correctness threshold was weakened.
 - The benchmark uses the same input distribution, warmup, iteration count, GPU,
   dtype, causal mode, and reference path as the baseline.
@@ -519,7 +539,7 @@ Directly used by this workflow:
 | [`jhinpan/ROCmKernelWiki`](https://github.com/jhinpan/ROCmKernelWiki) | AMD ROCm kernel knowledge skill used for gfx950/FlyDSL/attention prior art. |
 | [`jhinpan/flydsl-rocprof-cli`](https://github.com/jhinpan/flydsl-rocprof-cli) | `flyprof` profiling CLI and companion skills used for FlyDSL instruction-level diagnosis. |
 | [`jhinpan/rocm-report-skill`](https://github.com/jhinpan/rocm-report-skill) | ROCm profiling report skill used to turn rocprofv3/ATT evidence into testable optimization hypotheses. |
-| [`ROCm/aiter`](https://github.com/ROCm/aiter) | Optional comparison backend used by PR683's FlashAttention benchmark harness when installed. |
+| [`ROCm/aiter`](https://github.com/ROCm/aiter) | Optional comparison backend used by [`ROCm/FlyDSL#683`](https://github.com/ROCm/FlyDSL/pull/683)'s FlashAttention benchmark harness when installed. |
 | [`openai/codex`](https://github.com/openai/codex) | Codex CLI used by Humanize for independent review. |
 
 Workflow and methodology references:
