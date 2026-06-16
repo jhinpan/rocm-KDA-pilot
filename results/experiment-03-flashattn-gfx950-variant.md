@@ -26,26 +26,36 @@ residual gap is structural.
 Family = B{1,8} × S{128,192,256,384,512} × {MHA,GQA} × {bf16,fp16} ×
 {causal,noncausal}; providers {auto, generic_m128, generic_m256, dualwave} +
 aiter_ck reference (`full_family/full_family_matrix.csv`,
-`full_family/family_analysis.md`). Metric = best-FlyDSL-provider time / aiter_ck
-(>100% = FlyDSL faster).
+`full_family/family_analysis.md`). Two metrics (time / aiter_ck, >100% = FlyDSL
+faster): **current-auto** (what the #685 dispatch actually runs) and
+**best-forced-provider** (the achievable FlyDSL envelope).
 
-**FAMILY geomean: 104.1% of aiter_ck (n=80 cells)** — FlyDSL's best-routed
-envelope is already *faster than aiter_ck across the short/mid family overall.**
+**Family geomean: current-auto = 101.7%, best-forced = 103.7%** (n=80 cells).
+FlyDSL is faster than aiter_ck on the family overall — but current-auto is *not*
+the best provider in every cell (see dispatch sub-optimality below).
 
-geomean by (S, B):
+geomean by (S, B), current-auto | best-forced:
 
-| S | B=1 | B=8 |
+| S | B=1 (auto / best) | B=8 (auto / best) |
 |---|---|---|
-| 128 | 92.8% (gap) | 119.8% (win) |
-| 192 | 88.0% (gap) | 110.9% (win) |
-| 256 | 86.1% (gap) | 112.8% (win) |
-| 384 | 100.5% (win) | 109.5% (win) |
-| 512 | 104.9% (win) | 122.8% (win) |
+| 128 | 88.8% / 92.6% (gap) | 118.9% / 119.6% (win) |
+| 192 | 87.1% / 87.4% (gap) | 100.8% / 110.9% (win) |
+| 256 | 83.8% / 86.1% (gap) | 112.0% / 112.7% (win) |
+| 384 | 100.3% / 100.1% (win) | 108.6% / 109.4% (win) |
+| 512 | 104.5% / 104.3% (win) | 119.0% / 121.4% (win) |
 
-**The entire deficit is 3 cells: S∈{128,192,256} at batch=1 (86–93%).** Every
-other cell — all of B=8, and B=1 at S≥384 — is at parity or FlyDSL-faster. The
-#685 dispatch is already near-optimal (only S=256 B=1 is ~3% sub-optimal, a
-dispatch artifact; AC-4 forbids dispatch-only wins).
+**The kernel-level deficit is the small-batch cells S∈{128,192,256} at B=1**
+(~84–93%) — where even the best provider trails aiter. Everything else (all B=8,
+B=1 S≥384) is parity-or-faster.
+
+**Correction vs the round-3 draft:** that draft claimed the #685 dispatch is
+"near-optimal." The full matrix shows otherwise — **current-auto is >2% slower
+than the best forced provider in 24/80 cells** (up to ~22%, e.g. B=8 S=192 GQA
+non-causal: auto routes to generic at 34.8µs but dualwave does 30.1µs; B=8 S=512
+GQA fp16 non-causal: auto 114.4µs vs dualwave 93.4µs). This is a **real
+dispatch-only follow-up** (the #685 gate could route some B=8/GQA short/mid cells
+to dualwave) — but **AC-4 excludes dispatch-only wins**, so it is recorded as
+queued follow-up, not claimed as this session's win. (`full_family/family_analysis.md`.)
 
 ## Levers tried at S=192/256 B=1 — all sub-threshold (≥5% bar)
 
@@ -61,26 +71,39 @@ Even the *correct* lever (QK-depth hit the diagnosed lgkmcnt stall) yields only
 (aiter uses a fundamentally different schedule/algorithm at small-batch mid-seq),
 not reachable by incremental FlyDSL schedule tuning.
 
-## AC-2 diagnosis (artifact-derived, `diag/diagnosis_table.csv`)
+## AC-2 diagnosis (artifact-derived per-provider table, `diag/diagnosis_table.csv`)
 
-All providers/tiles at the short/mid buckets: **4 waves/CU (25% occupancy),
-arch_vgpr ~239, sgpr 112, scratch 0, no spill**; **no bucket is MFMA/compute-bound**
-(MFMA ≤8%). Limiters are memory/latency (lgkmcnt/vmcnt/salu), regime-dependent.
-dualwave is barrier-bound (≈20% — the Exp-02 irreducible limit).
+Per-provider flyprof + trace across family cells (forced generic_m128 /
+generic_m256 / dualwave). All at **4 waves/CU (25% occupancy)**, sgpr 112,
+no spill; **no bucket is MFMA/compute-bound** (MFMA ≤8%). The limiter differs by
+provider/tile:
+- **generic_m128** (vgpr 120, lds 49152): lgkmcnt/vmcnt-bound (lgkmcnt ~26–28% at
+  S=192/256; vmcnt ~25–29% at S=512/B=8).
+- **generic_m256** (vgpr 116): barrier-bound (~21–23%) — the 512-thread tile is
+  the wrong shape for short/mid.
+- **dualwave** (vgpr 128, lds 68096): barrier-bound (~23%) — the Exp-02
+  irreducible limit.
 
 ## Why this is the right negative result
 
-- **AC-1** baseline locked + fail-closed full-family provider matrix + environment
-  record.
-- **AC-2** artifact-derived per-provider resource/stall table.
+- **AC-1** baseline locked + fail-closed full-family provider matrix (320 rows) +
+  refreshed environment/provenance record.
+- **AC-2** artifact-derived **per-provider/per-shape** resource/stall table.
 - **AC-3/AC-5** four fully-evaluated, isolated, off-byte-identical candidates with
-  OFF/ON ISA + flyprof + patches + (where relevant) schedule proofs — all rejected
-  with mechanism evidence.
+  OFF/ON ISA + flyprof + saved patches + schedule proofs — all rejected with
+  mechanism evidence.
+- **AC-6** no-GPU routing-predicate unit test (16 cases, PASS) + full correctness
+  matrix **668 PASS / 0 FAIL**: dense 432 (S{1..8192} × causal/noncausal ×
+  bf16/fp16 × MHA/GQA/MQA × B{1,8}), default-sweep+varlen 232 (incl. varlen 16/16),
+  split-K 2, `FLYDSL_DISABLE_DUALWAVE_SWP=1` 2. gfx942 fallback: no gfx942 hardware
+  here → covered by the no-GPU `_routes_to_dualwave(dualwave_available=False)` test
+  + the builder's `gpu_arch.startswith("gfx950")` guards (limitation stated).
 - **AC-4** must-win bar not met by any candidate (best ~1% vs ≥5%); the gap is
-  structural, confined to S=192/256 B=1, and even there FlyDSL is ~86–88% of aiter
-  while *winning* everywhere else in the family.
+  structural, confined to small-batch S=128/192/256 B=1, and even there FlyDSL's
+  best provider trails aiter only while *winning* everywhere else in the family.
 - Per the plan's Lower Bound, an evidence-backed Experiment-03 negative report
-  closes the session.
+  closes the session. (A real **dispatch-only** follow-up exists — 24/80 auto
+  cells are sub-optimal — but AC-4 excludes dispatch-only wins; it is queued.)
 
 ## Honest assessment
 
