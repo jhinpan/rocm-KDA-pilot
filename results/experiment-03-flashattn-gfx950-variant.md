@@ -17,9 +17,9 @@ residual gap is structural.
 | Baseline | upstream/main + Exp-01 dispatch gate #685 (`9afd80b8`; variant branch HEAD) |
 | Scope | specialized variant (DEC-2 lifted → DEC-3); MI350/gfx950 only (DEC-1) |
 | Loop | Humanize RLCR, `--max 12`, `--codex-model gpt-5.5:xhigh` |
-| Rounds | 4 (0–3): baseline+diagnosis → BLOCK_M=64 kill → MG-1 fix+vmcnt kill → QK-depth + finalize |
+| Rounds | 6 (0–5): baseline+diagnosis → BLOCK_M=64 kill → MG-1 fix+vmcnt kill → QK-depth → AC-6+report → evidence finalization |
 | Outcome | **No win landed — evidence-backed negative result.** Best lever (QK-depth) = ~1%, below the ≥5% bar. |
-| Source delta | +40 lines in `flash_attn_generic.py` (provider-forcing selector + true forced-dualwave); no kernel-math change |
+| Source delta | `flash_attn_generic.py`: provider-forcing selector + true forced-dualwave + pure dispatch-predicate refactor; `tests/unit/test_flash_attn_dispatch_routing.py`: no-GPU routing test. Byte-identical when unset; no kernel-math change. |
 
 ## The competitive picture — full named-family matrix (320 rows, 80 cells, ALL PASS)
 
@@ -88,7 +88,10 @@ provider/tile:
 
 - **AC-1** baseline locked + fail-closed full-family provider matrix (320 rows) +
   refreshed environment/provenance record.
-- **AC-2** artifact-derived **per-provider/per-shape** resource/stall table.
+- **AC-2** artifact-derived per-provider resource/stall table over **representative**
+  family cells (3 providers × 5 cells, bf16 causal — the gap buckets S=192/256, a
+  protected S=512, a B=8; full-family-all-dtype profiling not exhaustively run, as
+  the candidate verdict was already settled by the full-family timing matrix).
 - **AC-3/AC-5** four fully-evaluated, isolated, off-byte-identical candidates with
   OFF/ON ISA + flyprof + saved patches + schedule proofs — all rejected with
   mechanism evidence.
@@ -129,6 +132,10 @@ why each cheap/medium lever fails, and that the remaining work is structural.
 ## Artifacts
 Loop dir `.humanize/rlcr/2026-06-16_18-35-14/` (FlyDSL worktree, untracked):
 `artifacts/{baseline/,provider_matrix/,full_family/,diag/,blockm64/,vmcnt_cand/,
-qk_prefetch3/}`, `docs/attempts.jsonl`, `docs/optimization-ledger.md`. Source:
-commits `42321df8` (diagnosis), `d3a418d1` (provider selector), `6a5ddc17`
-(forced-dualwave fix) on branch `kda/flydsl-flashattn-gfx950-variant`.
+qk_prefetch3/, ac6_v2/}`, `docs/attempts.jsonl`, `docs/optimization-ledger.md`.
+FlyDSL source commits on `kda/flydsl-flashattn-gfx950-variant` (baseline
+`9afd80b8`): `42321df8` (diagnosis), `d3a418d1` (provider selector), `6a5ddc17`
+(forced-dualwave fix), `99280827` (pure dispatch-predicate refactor + no-GPU
+routing test), `c3c7002a` (round-4 boundary), `8a795c5c` (stale-comment cleanup).
+This report: rocm-KDA-pilot `bf81848` (initial), `8a346ca` (round-4 dispatch
+correction), + this round-5 amendment.
