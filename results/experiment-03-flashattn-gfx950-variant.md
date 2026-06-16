@@ -139,7 +139,7 @@ FlyDSL source commits on `kda/flydsl-flashattn-gfx950-variant` (baseline
 `9afd80b8`): `42321df8` (diagnosis), `d3a418d1` (provider selector), `6a5ddc17`
 (forced-dualwave fix), `4a7167ea` (r3 boundary), `99280827` (pure dispatch-predicate
 refactor + no-GPU routing test), `c3c7002a` (r4 boundary), `8a795c5c` (last
-non-empty source change: stale-comment cleanup), `2c1a231c` (r5 boundary). Latest
-round-boundary commit is the current HEAD. This report: rocm-KDA-pilot `bf81848`
-(initial) → `8a346ca` (r4 dispatch correction) → `8ca80d9` (r5 provenance) → this
-round-6 amendment.
+non-empty source change: stale-comment cleanup), `2c1a231c` (r5 boundary),
+`bea21e39` (r6 boundary), `4257ce77` (r7 boundary, current HEAD). This report:
+rocm-KDA-pilot `bf81848` (initial) → `8a346ca` (r4 dispatch correction) →
+`8ca80d9` (r5 provenance) → `d66f6ae` (r6 framing) → `+r7 amendment` (this commit).
