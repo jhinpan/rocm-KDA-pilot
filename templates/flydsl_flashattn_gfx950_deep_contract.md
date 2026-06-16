@@ -1,35 +1,35 @@
-# Humanize Gen-Plan Draft: FlyDSL FlashAttention Forward On gfx950 — DEEP Round 2
+# Humanize Gen-Plan Draft: FlyDSL FlashAttention Forward On gfx950 — DEEP Session (Experiment 02)
 
 Use this draft to generate a Humanize RLCR plan for a **second, deeper** round of
 optimizing FlyDSL FlashAttention forward on AMD gfx950 / MI350X-MI355X.
 
-This draft is for the case where Round 1 already landed a safe but **narrow** win
+This draft is for the case where Session 1 (Experiment 01) already landed a safe but **narrow** win
 (see `results/experiment-01-flashattn-gfx950.md`) and we now want **broad,
 kernel-level** speedups across many shapes — the way PR683 itself was broad — not
 another single-case dispatch tweak.
 
 > Read `results/experiment-01-flashattn-gfx950.md` before generating the plan.
-> The Round-1 profiling and candidate ledger are required context.
+> The Session-1 profiling and candidate ledger are required context.
 
 ## Source Refs
 
 - FlyDSL upstream: https://github.com/ROCm/FlyDSL  (PR683 is **merged into `main`**)
 - FlyDSL working fork: https://github.com/jhinpan/FlyDSL-lab
-- Round-1 result: `results/experiment-01-flashattn-gfx950.md`
-- Round-1 upstream PR (the dispatch gate): ROCm/FlyDSL #685
+- Session-1 result: `results/experiment-01-flashattn-gfx950.md`
+- Session-1 upstream PR (the dispatch gate): ROCm/FlyDSL #685
 - Observed on: {{DATE}}
 - FlyDSL upstream/main SHA: {{FLYDSL_MAIN_SHA}}
-- Round-1 landed commit (dispatch gate): {{ROUND1_GATE_SHA}}
+- Session-1 landed commit (dispatch gate): {{ROUND1_GATE_SHA}}
 - Current worktree HEAD: {{WORKTREE_HEAD}}
 - Current branch: {{WORKTREE_BRANCH}}
 
-## Baseline change vs Round 1
+## Baseline change vs Session 1
 
-Round 1 compared against the PR683 *head*. **Round 2 compares directly against
-`upstream/main`** (PR683 is merged) **plus the Round-1 dispatch gate already
+Session 1 compared against the PR683 *head*. **This deep session compares directly against
+`upstream/main`** (PR683 is merged) **plus the Session-1 dispatch gate already
 applied**. Concretely the baseline is: upstream/main + #685's gate. The goal is
 to beat *that* — so a re-derivation of the short-seq dispatch win does NOT count
-as progress this round.
+as progress this session.
 
 ## Ultimate Goal
 
@@ -49,7 +49,7 @@ K:
   kernel body). This round MUST land at least one kernel-body change — a
   dispatch-only or harness-only result does NOT satisfy the lower bound.
 - `kernels/flash_attn_generic.py` may be touched only if a kernel-body change
-  requires a matching dispatch update; do not re-litigate the Round-1 gate.
+  requires a matching dispatch update; do not re-litigate the Session-1 gate.
 - `python/flydsl/expr/rocdl.py` only if a new intrinsic is genuinely required.
 - `tests/kernels/test_flash_attn_fwd.py` only for measurement output / harness
   fixes, never to weaken the gate.
@@ -62,21 +62,21 @@ R: (unchanged hard gates)
 - Reference: PR683 harness vs PyTorch SDPA / chunked SDPA.
 - `max_err < 1e-2` AND `min_cos > 0.99`; no FAIL/ERROR rows; no failure→SKIP.
 
-W: (required sweeps — same as Round 1, plus breadth scoring below)
+W: (required sweeps — same as Session 1, plus breadth scoring below)
 
 - `DEFAULT_CONFIGS` and `VARLEN_CONFIGS`, bf16 + fp16, causal + non-causal,
   MHA + GQA. Split-K focus configs when split-K is touched.
-- Compare against the Round-2 baseline (upstream/main + #685 gate) and
+- Compare against the deep-session baseline (upstream/main + #685 gate) and
   aiter_ck / aiter_asm.
 
 ## Pre-authorized deep optimization directions
 
-These are the structurally-deep levers identified by Round-1 profiling. They are
+These are the structurally-deep levers identified by Session-1 profiling. They are
 **inherently multi-step** — the plan should treat each as a *milestone with
 sub-steps*, NOT force them into a single "one isolated change" candidate. Each
 milestone still ends in a full correctness gate before its perf counts.
 
-Profiling fact base (from Round 1, MI350X): short/mid dense buckets are
+Profiling fact base (from Session 1, MI350X): short/mid dense buckets are
 memory-bound (vmcnt + s_barrier dominant, MFMA only ~3-5%); occupancy capped at
 4 waves/CU, register-limited; long/GQA/split-K latency-bound.
 
@@ -84,10 +84,10 @@ memory-bound (vmcnt + s_barrier dominant, MFMA only ~3-5%); occupancy capped at
    Goal: lift occupancy above 4 waves/CU. Sub-steps: measure VGPR allocation and
    the occupancy threshold; move the A/B tile staging through LDS via async copy
    to free architectural VGPRs; re-validate occupancy actually rose before timing.
-   Guardrail: do NOT force maxnreg to push accum_vgpr=0 (Round-1 note: ~4.5x
+   Guardrail: do NOT force maxnreg to push accum_vgpr=0 (Session-1 note: ~4.5x
    spill regression).
 2. **LDS double-buffer prefetch-depth re-architecture** (the *correct* version of
-   the failed Round-1 VMEM-prefetch candidate). Raising prefetch *depth* (not just
+   the failed Session-1 VMEM-prefetch candidate). Raising prefetch *depth* (not just
    relaxing a waitcnt) requires extending the `[K0][V0][K1][V1]` buffer layout and
    its address arithmetic + waitcnt schedule together. Treat as one coupled but
    well-scoped milestone with a stated hazard model.
@@ -106,24 +106,24 @@ to confirm the targeted bubble shrank. Required first step each milestone:
 capture VGPR/SGPR/LDS/occupancy/spill + the stall taxonomy for the milestone's
 target bucket, so "did occupancy rise / did the bubble shrink" is decidable.
 
-## Promotion criteria — REWARD BREADTH (this is the key change from Round 1)
+## Promotion criteria — REWARD BREADTH (the key change from Session 1)
 
 - **Lower bound (must achieve):** at least one **kernel-body** change in
   `flash_attn_gfx950.py` that improves a **named family of buckets** (e.g. all
   long MHA, or all GQA) by a repeatable median margin, with **no required bucket
   regressing beyond ~2-3% noise**, correctness fully preserved. A dispatch-only
-  or knob-only result does NOT satisfy the lower bound this round.
+  or knob-only result does NOT satisfy the lower bound this session.
 - **Upper bound (aim for):** a kernel-body change (or small set) that improves the
-  **overall geomean across the full required sweep** AND beats the Round-2
+  **overall geomean across the full required sweep** AND beats the deep-session
   baseline on a majority of buckets, narrowing or closing the aiter gap broadly.
 - Report per-bucket AND geomean (geomean alone may hide a regression; per-bucket
-  alone may undersell breadth — report both this round).
-- No win from a single noisy run; median of repeats vs the locked Round-2
+  alone may undersell breadth — report both this session).
+- No win from a single noisy run; median of repeats vs the locked deep-session
   baseline.
 
 ## RLCR Loop Rules (additions for the deep round)
 
-All Round-1 rules apply, plus:
+All Session-1 rules apply, plus:
 
 - **Surface-enumeration rule:** any dispatch/launch-signature change must enumerate
   the full call contract of every target path and ship a no-GPU routing-predicate
@@ -138,19 +138,19 @@ All Round-1 rules apply, plus:
 
 ## Expected Plan Shape
 
-1. Context refresh from Round-1 results + the merged PR683 + #685 gate.
-2. Lock the Round-2 baseline (upstream/main + #685 gate), full sweep + --compare.
-3. Re-profile the target buckets to confirm the Round-1 bottleneck map still holds
+1. Context refresh from Session-1 results + the merged PR683 + #685 gate.
+2. Lock the deep-session baseline (upstream/main + #685 gate), full sweep + --compare.
+3. Re-profile the target buckets to confirm the Session-1 bottleneck map still holds
    on the current baseline.
 4. Deep optimization milestones (from the pre-authorized list), ranked by
    expected value and risk, each with named profiling questions and sub-steps.
 5. Per-milestone candidate ledger + promotion (breadth-scored).
-6. Final report with per-bucket AND geomean tables vs the Round-2 baseline.
+6. Final report with per-bucket AND geomean tables vs the deep-session baseline.
 
 ## Final Deliverables
 
 - Design summary; changed files (must include `flash_attn_gfx950.py`).
-- Correctness table; per-bucket AND geomean benchmark table vs Round-2 baseline.
+- Correctness table; per-bucket AND geomean benchmark table vs deep-session baseline.
 - aiter_ck / aiter_asm comparison; split-K table if split-K changed.
 - Before/after profiling evidence for each promoted kernel-body change (the named
   bubble must measurably shrink).

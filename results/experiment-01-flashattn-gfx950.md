@@ -57,7 +57,7 @@ Correctness: full `DEFAULT_CONFIGS` sweep 0 FAIL / 0 ERROR; `VARLEN_CONFIGS`
 ## Honest assessment — why the win was narrow
 
 The promoted change helps **only a small slice** (dense `S=128`). That is a direct
-consequence of how Round-1 was scoped, not a hardware limit:
+consequence of how Session 1 was scoped, not a hardware limit:
 
 1. The plan's **lower bound permitted a dispatch-only win** (AC: "≥1 promoted
    candidate"). The risk-averse loop took the cheapest satisfying path and stopped.
@@ -69,10 +69,10 @@ consequence of how Round-1 was scoped, not a hardware limit:
    prefetch depth is hardcoded; raising occupancy needs VGPR-footprint surgery),
    which the "isolated change" granularity rule pushes against.
 
-To get #683-style **broad** speedups across many shapes, Round 2 needs a
+To get #683-style **broad** speedups across many shapes, a deeper Session 2 needs a
 differently-structured draft/plan (see
 [`templates/flydsl_flashattn_gfx950_deep_contract.md`](../templates/flydsl_flashattn_gfx950_deep_contract.md)
-and the README "Running a deeper second round" section).
+and the README "Running A Deeper Session" section).
 
 ## Process cost (for workflow tracking)
 
