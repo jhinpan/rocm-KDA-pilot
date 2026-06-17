@@ -68,7 +68,7 @@ if [[ ! -f "$TEMPLATE" ]]; then
   exit 1
 fi
 
-if [[ ! -d "$FLYDSL_ROOT/.git" ]]; then
+if ! git -C "$FLYDSL_ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   echo "not a git worktree: $FLYDSL_ROOT" >&2
   exit 1
 fi

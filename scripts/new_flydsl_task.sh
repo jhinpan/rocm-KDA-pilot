@@ -75,7 +75,7 @@ esac
 [[ -n "$BRANCH" ]] || BRANCH="rlcr/$SLUG"
 WORKTREE="$WORKSPACE/FlyDSL-$SLUG"
 
-if [[ ! -d "$FLYDSL_LAB/.git" ]]; then
+if ! git -C "$FLYDSL_LAB" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   echo "error: FlyDSL-lab host not found at $FLYDSL_LAB" >&2
   echo "       set KDA_FLYDSL_LAB to override." >&2
   exit 1
