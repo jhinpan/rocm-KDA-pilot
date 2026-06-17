@@ -126,6 +126,55 @@ Verify the commands exist:
 Do not paste multiple Claude slash commands at once; some Claude Code versions
 concatenate pasted slash-command lines.
 
+## Using The Skills
+
+After `bash scripts/bootstrap.sh`, Claude Code can see two project skills:
+
+| Skill | Use it for | Stops before |
+|---|---|---|
+| `flydsl-task-setup` | Prep: issue -> FlyDSL worktree -> draft -> Humanize plan. | Human plan-review gate. |
+| `rocm-kda-pilot` | Execution: reviewed plan -> RLCR loop -> optimization evidence -> result report. | Final result reporting / operator decisions. |
+
+The usual operator flow is:
+
+```text
+1. Write or choose a GitHub issue
+2. Ask Claude to use flydsl-task-setup
+3. Review/refine the generated Humanize plan
+4. Ask Claude to use rocm-kda-pilot, or run /humanize:start-rlcr-loop directly
+5. Let RLCR run the auto loop
+6. Record the final outcome under results/
+```
+
+Example request to Claude Code from `/sgl-workspace/rocm-KDA-pilot`:
+
+```text
+Use the flydsl-task-setup skill for ROCm/FlyDSL#698.
+Slug: fa-fp8.
+Template: fp8.
+Base: upstream/main for now.
+Create the FlyDSL worktree, write the draft, run preflight, generate the Humanize plan,
+then stop before the human plan-review gate.
+```
+
+The skill should prepare `/sgl-workspace/FlyDSL-fa-fp8`, write
+`.humanize/kernel-agent/draft.md`, run preflight, and generate
+`.humanize/kernel-agent/refined-plan.md`. The live execution artifacts stay in the
+FlyDSL worktree; this repo keeps the issue, workflow docs, templates, and final
+result reports.
+
+After reviewing the plan, start the loop from the FlyDSL task worktree:
+
+```text
+/humanize:start-rlcr-loop .humanize/kernel-agent/refined-plan.md --skip-quiz --claude-answer-codex --max 12 --codex-model gpt-5.5:xhigh --codex-timeout 5400 --base-branch <locked-baseline-branch>
+```
+
+`--skip-quiz --claude-answer-codex` is the normal autonomous mode: Claude keeps
+working, Codex reviews at round boundaries, and Humanize continues until
+`IMPROVEMENT`, evidence-backed `NO-GO`, `BLOCKED`, max rounds, or operator stop.
+Do not use it until the plan and `<locked-baseline-branch>` have been reviewed by
+a human.
+
 ## Running A Task
 
 The fastest path on our fixed `/sgl-workspace` layout is the provisioning
