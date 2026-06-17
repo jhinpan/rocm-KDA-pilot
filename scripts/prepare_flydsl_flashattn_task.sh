@@ -4,7 +4,7 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  scripts/prepare_flydsl_flashattn_task.sh [--deep] /path/to/FlyDSL-worktree
+  scripts/prepare_flydsl_flashattn_task.sh [--deep | --fp8] /path/to/FlyDSL-worktree
 
 Writes:
   .humanize/kernel-agent/draft.md
@@ -15,6 +15,13 @@ Options:
            default first-pass contract. Use this for a second loop that must
            land a kernel-body change and is scored for breadth, not a single
            dispatch tweak. See README and docs/terminology.md.
+  --fp8    Use the fp8 contract template
+           (templates/flydsl_flashattn_fp8_gfx950_contract.md). This frames the
+           ROCm/FlyDSL#698 task: add an fp8 (e4m3fn) FlashAttention forward path
+           on gfx950 and optimize it toward the aiter asm fp8 level (~2000+T),
+           without regressing the existing bf16/fp16 paths.
+
+--deep and --fp8 are mutually exclusive.
 
 The FlyDSL worktree should usually be a jhinpan/FlyDSL-lab fork checkout on a
 branch created from upstream ROCm/FlyDSL (which now contains PR683).
@@ -22,11 +29,13 @@ EOF
 }
 
 DEEP=0
+FP8=0
 ARGS=()
 for a in "$@"; do
   case "$a" in
     -h|--help) usage; exit 0 ;;
     --deep) DEEP=1 ;;
+    --fp8) FP8=1 ;;
     *) ARGS+=("$a") ;;
   esac
 done
@@ -37,10 +46,17 @@ if [[ $# -ne 1 ]]; then
   exit 2
 fi
 
+if [[ $DEEP -eq 1 && $FP8 -eq 1 ]]; then
+  echo "--deep and --fp8 are mutually exclusive" >&2
+  exit 2
+fi
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FLYDSL_ROOT="$(cd "$1" && pwd)"
 if [[ $DEEP -eq 1 ]]; then
   TEMPLATE="$ROOT/templates/flydsl_flashattn_gfx950_deep_contract.md"
+elif [[ $FP8 -eq 1 ]]; then
+  TEMPLATE="$ROOT/templates/flydsl_flashattn_fp8_gfx950_contract.md"
 else
   TEMPLATE="$ROOT/templates/flydsl_flashattn_gfx950_contract.md"
 fi

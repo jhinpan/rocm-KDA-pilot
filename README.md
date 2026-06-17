@@ -72,10 +72,12 @@ For new tasks, start from the issue template:
 
 | Path | Purpose |
 |---|---|
-| [`templates/`](templates/) | Draft templates for known task families. Useful when bootstrapping an issue or a first run. |
-| [`skills/rocm-kda-pilot/`](skills/rocm-kda-pilot/) | Project skill that tells Claude how to run this workflow. |
+| [`templates/`](templates/) | Draft templates for known task families: the default and `--deep` FlashAttention contracts, and the [`fp8`](templates/flydsl_flashattn_fp8_gfx950_contract.md) contract for [`ROCm/FlyDSL#698`](https://github.com/ROCm/FlyDSL/issues/698). |
+| [`skills/rocm-kda-pilot/`](skills/rocm-kda-pilot/) | Project skill for running the loop (execution side). |
+| [`skills/flydsl-task-setup/`](skills/flydsl-task-setup/) | Project skill for the prep phase: issue -> worktree -> draft -> plan, stopping at the human plan-review gate. |
+| [`scripts/new_flydsl_task.sh`](scripts/new_flydsl_task.sh) | One command: provisions `/sgl-workspace/FlyDSL-<slug>` on `rlcr/<slug>`, writes the draft, wires bindings, runs preflight. |
 | [`scripts/bootstrap.sh`](scripts/bootstrap.sh) | Links skills and installs local helper tooling. |
-| [`scripts/prepare_flydsl_flashattn_task.sh`](scripts/prepare_flydsl_flashattn_task.sh) | Creates a FlashAttention draft in a FlyDSL worktree. |
+| [`scripts/prepare_flydsl_flashattn_task.sh`](scripts/prepare_flydsl_flashattn_task.sh) | Creates a FlashAttention draft (`--deep` / `--fp8`) in a FlyDSL worktree. |
 | [`scripts/preflight.sh`](scripts/preflight.sh) | Checks Codex model naming and FlyDSL runtime bindings before RLCR. |
 | [`docs/`](docs/) | Short contracts for Humanize flow, benchmark rules, profiling rules, FlashAttention invariants, and terminology. |
 | [`results/`](results/) | Completed loop result reports. |
@@ -125,6 +127,17 @@ Do not paste multiple Claude slash commands at once; some Claude Code versions
 concatenate pasted slash-command lines.
 
 ## Running A Task
+
+The fastest path on our fixed `/sgl-workspace` layout is the provisioning
+script, which creates the worktree, branch, draft, and bindings in one step:
+
+```bash
+cd /sgl-workspace/rocm-KDA-pilot
+bash scripts/new_flydsl_task.sh --slug <slug> --template <default|deep|fp8> --base <locked-base-ref>
+```
+
+See [Example: fp8 FlashAttention From Issue #698](#example-fp8-flashattention-from-issue-698)
+for the full walkthrough. The manual steps below are the underlying mechanics.
 
 Use a target kernel worktree for the actual code changes. For FlyDSL work, that
 is usually a checkout of [`jhinpan/FlyDSL-lab`](https://github.com/jhinpan/FlyDSL-lab).
@@ -181,6 +194,100 @@ Start RLCR:
 
 Use the exact baseline branch for the task. Do not guess it. Humanize/Codex
 review quality depends on a clean, immutable comparison base.
+
+## Example: fp8 FlashAttention From Issue #698
+
+This is the canonical end-to-end walkthrough, from a GitHub issue to a running
+loop, on our fixed `/sgl-workspace` layout. The task is
+[`ROCm/FlyDSL#698`](https://github.com/ROCm/FlyDSL/issues/698): add an fp8
+FlashAttention forward path on gfx950 and push it toward the aiter asm fp8 level
+(~`2000+T`) without regressing the existing bf16 baseline (~`1300+T`).
+
+The fixed layout means none of the paths below need to be guessed:
+
+| Path | Role |
+|---|---|
+| `/sgl-workspace/FlyDSL-lab` | Host checkout of `jhinpan/FlyDSL-lab`; owns all FlyDSL worktrees. `origin` = jhinpan/FlyDSL-lab, `upstream` = ROCm/FlyDSL. |
+| `/sgl-workspace/rocm-KDA-pilot` | This scaffold. |
+| `/sgl-workspace/FlyDSL-fa-fp8` | The per-task worktree this example creates. |
+
+### Step 0 -- the issue is the draft source
+
+Issue #698 is sparse on its own ("port aiter asm fp8, 1300+T -> 2000+T"). The
+[`fp8` contract template](templates/flydsl_flashattn_fp8_gfx950_contract.md)
+supplies the K/R/W contract, fp8 numerics (gfx950 = `e4m3fn`), correctness gates,
+and outcome criteria the issue text leaves implicit.
+
+### Step 1 -- provision the task worktree (automatable)
+
+One command creates the worktree, branch, draft, and binding wiring. A Claude
+Code instance using the [`flydsl-task-setup`](skills/flydsl-task-setup/) skill
+can own this:
+
+```bash
+cd /sgl-workspace/rocm-KDA-pilot
+bash scripts/new_flydsl_task.sh --slug fa-fp8 --template fp8 \
+  --base upstream/main \
+  --build-from /sgl-workspace/FlyDSL-lab
+```
+
+This produces `/sgl-workspace/FlyDSL-fa-fp8` on branch `rlcr/fa-fp8`, writes
+`.humanize/kernel-agent/draft.md`, wires `_mlir` bindings, and runs preflight.
+Use the exact locked baseline for `--base` once you have one; `upstream/main` is
+only the default.
+
+Optionally append the live issue text to the draft:
+
+```bash
+cd /sgl-workspace/FlyDSL-fa-fp8
+{ echo; echo "# Live Issue Snapshot"; echo; \
+  gh issue view https://github.com/ROCm/FlyDSL/issues/698 --comments; \
+} >> .humanize/kernel-agent/draft.md
+```
+
+### Step 2 -- generate the plan (automatable)
+
+```bash
+cd /sgl-workspace/FlyDSL-fa-fp8
+claude --permission-mode bypassPermissions
+```
+
+```text
+/humanize:gen-plan --input .humanize/kernel-agent/draft.md --output .humanize/kernel-agent/refined-plan.md --direct
+```
+
+### Step 3 -- review and refine the plan (HUMAN GATE)
+
+Stop here. A human reads the plan, confirms the fp8 numerics, the correctness
+gates, the aiter-asm parity bar, and the formal-outcome criteria, and edits it if
+it is wrong. The loop should never start from an unreviewed plan.
+
+```bash
+cd /sgl-workspace/rocm-KDA-pilot
+bash scripts/review_humanize_artifact.sh /sgl-workspace/FlyDSL-fa-fp8 refined --terminal
+```
+
+### Step 4 -- start the loop (HUMAN GATE)
+
+A human starts the loop with the exact locked baseline:
+
+```text
+/humanize:start-rlcr-loop .humanize/kernel-agent/refined-plan.md --skip-quiz --claude-answer-codex --max 12 --codex-model gpt-5.5:xhigh --codex-timeout 5400 --base-branch <locked-baseline-branch>
+```
+
+### Why these two gates stay human
+
+Prep -- snapshotting the issue, provisioning a worktree, generating a first plan
+-- is mechanical and deterministic, so a skill does it well. Deciding whether the
+plan is correct, and whether to spend real GPU/agent time running it, are
+judgment calls; those stay with the operator. See
+[`skills/flydsl-task-setup/`](skills/flydsl-task-setup/) for the automatable half
+and [`skills/rocm-kda-pilot/`](skills/rocm-kda-pilot/) for the loop side.
+
+### When the loop finishes
+
+Record the outcome (`IMPROVEMENT`, `NO-GO`, or `BLOCKED`) under
+[`results/`](results/), following the existing FlashAttention loop reports.
 
 ## FlashAttention Example And Results
 

@@ -35,6 +35,7 @@ git -C "$ROOT" submodule update --init --recursive
 link_skill "ROCmKernelWiki" "$ROOT/external/ROCmKernelWiki"
 link_skill "rocm-report-skill" "$ROOT/external/rocm-report-skill"
 link_skill "rocm-kda-pilot" "$ROOT/skills/rocm-kda-pilot"
+link_skill "flydsl-task-setup" "$ROOT/skills/flydsl-task-setup"
 
 for skill_dir in "$ROOT"/external/flydsl-rocprof-cli/skills/*; do
   [[ -d "$skill_dir" && -f "$skill_dir/SKILL.md" ]] || continue
