@@ -1,4 +1,4 @@
-# Experiment 01 — FlyDSL FlashAttention forward, gfx950 (MI350X)
+# Loop 01 — FlyDSL FlashAttention forward, gfx950 (MI350X)
 
 First end-to-end run of the ROCm KDA Pilot Humanize/RLCR workflow.
 
@@ -12,7 +12,7 @@ First end-to-end run of the ROCm KDA Pilot Humanize/RLCR workflow.
 | Reviewed against | `rocm-kda-base/flydsl-flashattn-gfx950-pr683` |
 | Loop | Humanize RLCR, `--max 12`, `--codex-model gpt-5.5:xhigh` |
 | Rounds used | 8 of 12 (build/review) + code-review phase (3 fix rounds) + finalize |
-| Outcome | **1 promoted optimization landed**; all acceptance criteria met; Codex review passed |
+| Outcome | **IMPROVEMENT — 1 promoted optimization landed**; all acceptance criteria met; Codex review passed |
 | Upstream PR | **[ROCm/FlyDSL#685](https://github.com/ROCm/FlyDSL/pull/685)** (draft) |
 
 ## What landed
@@ -57,7 +57,7 @@ Correctness: full `DEFAULT_CONFIGS` sweep 0 FAIL / 0 ERROR; `VARLEN_CONFIGS`
 ## Honest assessment — why the win was narrow
 
 The promoted change helps **only a small slice** (dense `S=128`). That is a direct
-consequence of how Session 1 was scoped, not a hardware limit:
+consequence of how Loop 01 was scoped, not a hardware limit:
 
 1. The plan's **lower bound permitted a dispatch-only win** (AC: "≥1 promoted
    candidate"). The risk-averse loop took the cheapest satisfying path and stopped.
@@ -69,10 +69,10 @@ consequence of how Session 1 was scoped, not a hardware limit:
    prefetch depth is hardcoded; raising occupancy needs VGPR-footprint surgery),
    which the "isolated change" granularity rule pushes against.
 
-To get #683-style **broad** speedups across many shapes, a deeper Session 2 needs a
+To get #683-style **broad** speedups across many shapes, a deeper Loop 02 needs a
 differently-structured draft/plan (see
 [`templates/flydsl_flashattn_gfx950_deep_contract.md`](../templates/flydsl_flashattn_gfx950_deep_contract.md)
-and the README "Running A Deeper Session" section).
+and the Loop 02 result report).
 
 ## Process cost (for workflow tracking)
 

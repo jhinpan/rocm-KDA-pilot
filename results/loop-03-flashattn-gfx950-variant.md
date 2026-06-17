@@ -1,11 +1,11 @@
-# Experiment 03 — FlyDSL FlashAttention forward, gfx950 (MI350X) — short/mid specialized-variant session
+# Loop 03 — FlyDSL FlashAttention forward, gfx950 (MI350X) — short/mid specialized-variant loop
 
-Third end-to-end run of the ROCm KDA Pilot Humanize/RLCR workflow. Where Exp-01
-landed a dispatch gate and Exp-02 was an in-body negative result on the long
-kernel, **Exp-03 targeted the short/mid-sequence regime** (S≈128–512) — the only
+Third end-to-end run of the ROCm KDA Pilot Humanize/RLCR workflow. Where Loop 01
+landed a dispatch gate and Loop 02 was an in-body `NO-GO` on the long
+kernel, **Loop 03 targeted the short/mid-sequence regime** (S≈128–512) — the only
 regime where FlyDSL still trails aiter_ck — with a specialized higher-occupancy
-variant. It is a **rigorous, evidence-backed negative result**: no kernel-level
-short/mid win clears the bar; FlyDSL's best-routed envelope already matches or
+variant. It is a **rigorous, evidence-backed NO-GO**: no kernel-level short/mid
+win clears the bar; FlyDSL's best-routed envelope already matches or
 beats aiter_ck everywhere except a narrow small-batch mid-sequence cell, and that
 residual gap is structural.
 
@@ -14,11 +14,11 @@ residual gap is structural.
 | | |
 |---|---|
 | Target | FlyDSL FlashAttention **forward**, gfx950 / MI350X, **short/mid S≈128–512** |
-| Baseline | upstream/main + Exp-01 dispatch gate #685 (`9afd80b8`; variant branch HEAD) |
+| Baseline | upstream/main + Loop 01 dispatch gate #685 (`9afd80b8`; variant branch HEAD) |
 | Scope | specialized variant (DEC-2 lifted → DEC-3); MI350/gfx950 only (DEC-1) |
 | Loop | Humanize RLCR, `--max 12`, `--codex-model gpt-5.5:xhigh` |
 | Rounds | a multi-round RLCR loop (baseline+diagnosis → BLOCK_M=64 kill → MG-1 fix+vmcnt kill → QK-depth → AC-6+report → evidence/provenance finalization); see the loop goal-tracker for the exact round/review history |
-| Outcome | **No win landed — evidence-backed negative result.** Best lever (QK-depth) = ~1%, below the ≥5% bar. |
+| Outcome | **NO-GO — no win landed.** Best lever (QK-depth) = ~1%, below the ≥5% bar. |
 | Source delta | `flash_attn_generic.py`: provider-forcing selector + true forced-dualwave + pure dispatch-predicate refactor; `tests/unit/test_flash_attn_dispatch_routing.py`: no-GPU routing test. Byte-identical when unset; no kernel-math change. |
 
 ## The competitive picture — full named-family matrix (320 rows, 80 cells, ALL PASS)
@@ -55,7 +55,7 @@ non-causal: auto routes to generic at 34.8µs but dualwave does 30.1µs; B=8 S=5
 GQA fp16 non-causal: auto 114.4µs vs dualwave 93.4µs). This is a **real
 dispatch-only follow-up** (the #685 gate could route some B=8/GQA short/mid cells
 to dualwave) — but **AC-4 excludes dispatch-only wins**, so it is recorded as
-queued follow-up, not claimed as this session's win. (`full_family/family_analysis.md`.)
+queued follow-up, not claimed as this loop's win. (`full_family/family_analysis.md`.)
 
 ## Levers tried at S=192/256 B=1 — all sub-threshold (≥5% bar)
 
@@ -81,10 +81,10 @@ provider/tile:
   S=192/256; vmcnt ~25–29% at S=512/B=8).
 - **generic_m256** (vgpr 116): barrier-bound (~21–23%) — the 512-thread tile is
   the wrong shape for short/mid.
-- **dualwave** (vgpr 128, lds 68096): barrier-bound (~23%) — the Exp-02
+- **dualwave** (vgpr 128, lds 68096): barrier-bound (~23%) — the Loop 02
   irreducible limit.
 
-## Why this is the right negative result
+## Why this is the right NO-GO
 
 - **AC-1** baseline locked + fail-closed full-family provider matrix (320 rows) +
   refreshed environment/provenance record.
@@ -104,13 +104,13 @@ provider/tile:
 - **AC-4** must-win bar not met by any candidate (best ~1% vs ≥5%); the gap is
   structural, confined to small-batch S=128/192/256 B=1, and even there FlyDSL's
   best provider trails aiter only while *winning* everywhere else in the family.
-- Per the plan's Lower Bound, an evidence-backed Experiment-03 negative report
-  closes the session. (A real **dispatch-only** follow-up exists — 24/80 auto
+- Per the plan's Lower Bound, an evidence-backed Loop 03 `NO-GO` report closes
+  the loop. (A real **dispatch-only** follow-up exists — 24/80 auto
   cells are sub-optimal — but AC-4 excludes dispatch-only wins; it is queued.)
 
 ## Honest assessment
 
-FlyDSL's FlashAttention-forward on gfx950 is, after Exp-01's dispatch gate,
+FlyDSL's FlashAttention-forward on gfx950 is, after Loop 01's dispatch gate,
 **already at or beyond aiter_ck across the vast majority of the shape space** —
 long, GQA, split-K, varlen, all B=8, and short S=128. The one soft spot
 (small-batch S=192/256) resisted four distinct, individually-correct optimization
@@ -125,10 +125,10 @@ why each cheap/medium lever fails, and that the remaining work is structural.
 - A multi-round RLCR loop (exact round/review counts in the loop goal-tracker); the
   loop correctly pushed back on premature round-boundary deferrals and "COMPLETE"
   overclaims until the must-win lever was actually executed and the full evidence
-  package produced. The terminal state is a **non-COMPLETE Lower-Bound negative
-  result accepted by the user (DEC-8)** — not an all-ACs-met COMPLETE (AC-4 is
+  package produced. The terminal state is a **non-COMPLETE Lower-Bound `NO-GO`
+  accepted by the user (DEC-8)** — not an all-ACs-met COMPLETE (AC-4 is
   explicitly not met).
-- Reusable tooling from Exp-02 carried over (pipeline_sim, resource probes, OFF/ON
+- Reusable tooling from Loop 02 carried over (pipeline_sim, resource probes, OFF/ON
   ISA capture, flyprof bundles); added a provider-forcing selector that makes
   per-provider attribution reproducible.
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Pre-loop sanity checks for a ROCm KDA Pilot Humanize/RLCR run.
 #
-# Motivated by experiment 01 (see results/experiment-01-flashattn-gfx950.md),
+# Motivated by loop 01 (see results/loop-01-flashattn-gfx950.md),
 # where two avoidable failures cost real time:
 #   1. A Codex model-name typo (`gpt5.5` vs `gpt-5.5`) was accepted at loop start,
 #      persisted into immutable loop state, and only surfaced when the first

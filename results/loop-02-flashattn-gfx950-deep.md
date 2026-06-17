@@ -1,22 +1,22 @@
-# Experiment 02 — FlyDSL FlashAttention forward, gfx950 (MI350X) — Deep / in-body session
+# Loop 02 — FlyDSL FlashAttention forward, gfx950 (MI350X) — Deep / in-body loop
 
 Second end-to-end run of the ROCm KDA Pilot Humanize/RLCR workflow. Where
-Experiment 01 landed a **dispatch-gate** win, this session was scoped to go
+Loop 01 landed a **dispatch-gate** win, this loop was scoped to go
 **inside the kernel body** and chase a #683-style **broad** speedup. It is a
-rigorous **negative result**: no in-body win is landable on this kernel, and we
-now have the profiling + ISA evidence to say *why*.
+rigorous, evidence-backed **NO-GO**: no in-body win is landable on this kernel,
+and we now have the profiling + ISA evidence to say *why*.
 
 ## At a glance
 
 | | |
 |---|---|
 | Target | FlyDSL FlashAttention **forward**, gfx950 / MI350X |
-| Baseline | ROCm/FlyDSL #683 + the Experiment-01 dispatch gate #685 (`9afd80b8`) |
+| Baseline | ROCm/FlyDSL #683 + the Loop 01 dispatch gate #685 (`9afd80b8`) |
 | Scope | **In-body only** (DEC-2), **must-win** goal (DEC-1: MI350/gfx950 only; MI355X = planned follow-up, not measured) |
 | Loop | Humanize RLCR, `--max 12`, `--codex-model gpt-5.5:xhigh` |
 | Rounds used | 3 build/review rounds, cancelled after the in-body lever set was exhausted |
-| Outcome | **No optimization landed — negative result.** Kernel body byte-identical to baseline. |
-| Follow-up | **Session 3**: specialized short/mid variant (DEC-2 lifted by user re-decision DEC-3) |
+| Outcome | **NO-GO — no optimization landed.** Kernel body byte-identical to baseline. |
+| Follow-up | **Loop 03**: specialized short/mid variant (DEC-2 lifted by user re-decision DEC-3) |
 
 ## Conclusion
 
@@ -36,7 +36,7 @@ to the design*, not a cheap mistake.
 | **Barrier removal** (C1→C2 / C5→C6) | correctness **FAIL**, reverted | Removing the 2 compute→memory `s_barrier`s (ISA s_barrier 25→23) → max_err ~1.8e-2–2.4e-2, min_cos ↓ 0.959. They are **load-bearing** cross-wave LDS producer/consumer barriers. |
 | **LDS bank / padding** (long_gqa) | NO-GO (gate not met) | The `lds=24%` stall is DMA-to-LDS completion latency (`buffer_load_dwordx4 … offen lds`), **not** ds_read bank conflicts. Padding already engineered (K_PAD 16B, V_PAD 64B). |
 | **Prefetch-depth** (`NUM_PREFETCH_K` 2→3) | **EXECUTED → REJECTED (measured + ISA)** | Faithful K-only triple-buffer, schedule proven RAW/WAR-safe by a symbolic simulator, **correct on first run**. Result below. |
-| **env knobs / waves_per_eu** | exhausted (Exp 01) | defaults optimal; waves_per_eu 3/4 → NaN. |
+| **env knobs / waves_per_eu** | exhausted (Loop 01) | defaults optimal; waves_per_eu 3/4 -> NaN. |
 
 ### The prefetch-depth result (the round-3 deep candidate)
 
@@ -79,12 +79,12 @@ Uniform across all 7 buckets: **vgpr_count = 128/thread, accum = 0, 4 waves/CU
 vmcnt/vmem; MFMA never top-3. The residual competitive gap is the **short/mid**
 regime — where this long-sequence-shaped kernel is simply the wrong tool.
 
-## Why this is the right negative result (not a premature stop)
+## Why this is the right NO-GO (not a premature stop)
 
-Unlike Experiment 01 (which took the cheapest dispatch-only path), this session
+Unlike Loop 01 (which took the cheapest dispatch-only path), this loop
 was *forced* to exhaust the in-body levers — including building, proving correct,
 and measuring the prefetch-depth candidate the prior reviewer flagged as
-"untried." The negative result is now **evidence-backed at the ISA level**, which
+"untried." The `NO-GO` is now **evidence-backed at the ISA level**, which
 is exactly the signal that the next lever must be **structural** (a specialized
 variant), not in-body surgery.
 
@@ -93,7 +93,7 @@ variant), not in-body surgery.
 - 3 build/review rounds. The main process tension: the loop reviewer (Codex,
   which reads only files) could not see the user's out-of-band re-decisions made
   via the harness's question channel, so it kept demanding the in-body lever set
-  be completed before any session-closure. Resolution required the user to
+  be completed before any loop closure. Resolution required the user to
   adjudicate and then `cancel-rlcr-loop` (the loop is user-only to end).
 - A **symbolic pipeline simulator** (no GPU) caught a real WAR-clobber hazard in
   the first triple-buffer sketch before any compile — cheap, high-value; worth
@@ -101,10 +101,10 @@ variant), not in-body surgery.
 
 ## Lessons learned (pilot-workflow)
 
-1. **A "must-win + in-body-only" scope can legitimately end in a negative
-   result.** The workflow needs a first-class, evidence-gated way to *conclude*
+1. **A "must-win + in-body-only" scope can legitimately end in `NO-GO`.** The
+   workflow needs a first-class, evidence-gated way to *conclude*
    "no in-body win exists" without it reading as a premature stop — and to let an
-   out-of-band user re-decision (lift a DEC, switch sessions) be visible to the
+   out-of-band user re-decision (lift a DEC, switch loops) be visible to the
    loop reviewer.
 2. **Simulate LDS pipeline schedules before emitting code.** A ~120-line symbolic
    RAW/WAR simulator turned a "high correctness risk" coupled rewrite into a
@@ -112,16 +112,16 @@ variant), not in-body surgery.
 3. **Capture OFF/ON `final_isa.s` for every kernel-body candidate.** The s_barrier
    / s_waitcnt / vgpr / LDS deltas are what turn "it regressed" into "it regressed
    *because the kernel is barrier-bound and this lever doesn't touch barriers*."
-4. **Negative results are deliverables.** This experiment's value is the
+4. **Evidence-backed `NO-GO` outcomes are deliverables.** This loop's value is the
    evidence-backed map of *why* the kernel resists in-body optimization, which
-   directly scopes Session 3 to the variant path.
+   directly scopes Loop 03 to the variant path.
 
 ## Artifacts
 
 Loop dir `.humanize/rlcr/2026-06-16_06-10-39/` (in the FlyDSL worktree, untracked):
-`SESSION2_NEGATIVE_RESULT.md`, `round-3-summary.md`,
-`round-3-task7-hazard-model.md`, `round-3-task7-evidence.md`,
-`round-3-task9-promotion-review.md`, `artifacts/pipeline_sim.py`,
+no-go report, `round-3-summary.md`, `round-3-task7-hazard-model.md`,
+`round-3-task7-evidence.md`, `round-3-task9-promotion-review.md`,
+`artifacts/pipeline_sim.py`,
 `artifacts/prefetch3_candidate/{prefetch3_depth3.patch, off_final_isa.s,
 on_final_isa.s, isa_off_vs_on.md}`, `docs/attempts.jsonl`,
 `docs/optimization-ledger.md`.

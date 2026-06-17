@@ -10,11 +10,11 @@ Writes:
   .humanize/kernel-agent/draft.md
 
 Options:
-  --deep   Use the deeper Round-2 contract template
+  --deep   Use the deeper Loop-02 contract template
            (templates/flydsl_flashattn_gfx950_deep_contract.md) instead of the
-           default first-pass contract. Use this for a second round that must
+           default first-pass contract. Use this for a second loop that must
            land a kernel-body change and is scored for breadth, not a single
-           dispatch tweak. See README "Running A Deeper Second Round".
+           dispatch tweak. See README and docs/terminology.md.
 
 The FlyDSL worktree should usually be a jhinpan/FlyDSL-lab fork checkout on a
 branch created from upstream ROCm/FlyDSL (which now contains PR683).
@@ -63,7 +63,7 @@ FLYDSL_MAIN_SHA="$(git ls-remote https://github.com/ROCm/FlyDSL.git refs/heads/m
 PR670_SHA="$(git ls-remote https://github.com/ROCm/FlyDSL.git refs/pull/670/head | awk '{print $1}')"
 PR683_SHA="$(git ls-remote https://github.com/ROCm/FlyDSL.git refs/pull/683/head | awk '{print $1}')"
 TODAY="$(date +%Y-%m-%d)"
-# Round-2 (deep) drafts also reference the experiment-01 dispatch-gate commit, if
+# Loop-02 (deep) drafts also reference the Loop-01 dispatch-gate commit, if
 # it is present in this worktree's history (best-effort; left as a placeholder
 # otherwise for the user to fill in).
 ROUND1_GATE_SHA="$(git -C "$FLYDSL_ROOT" log --grep='short seq_len' --grep='_DUALWAVE_MIN_DENSE_SEQ' -i --format=%H -n 1 2>/dev/null || true)"
@@ -103,7 +103,7 @@ Review the draft from this rocm-KDA-pilot checkout:
   bash scripts/review_humanize_artifact.sh "$FLYDSL_ROOT" draft --html
 
 Preflight the loop config BEFORE starting (validates the Codex model name and
-wires/checks the FlyDSL build bindings -- avoids the experiment-01 cancel/restart):
+wires/checks the FlyDSL build bindings -- avoids the loop-01 cancel/restart):
   bash scripts/preflight.sh "$FLYDSL_ROOT" --codex-model gpt-5.5:xhigh
   # add --build-from /path/to/built-FlyDSL --fix-bindings if _mlir is missing
 

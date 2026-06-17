@@ -161,7 +161,8 @@ The generated plan should include:
 5. Profiling decision points.
 6. Candidate ledger format.
 7. Promotion criteria.
-8. Final report format.
+8. Formal outcome criteria using `IMPROVEMENT`, `NO-GO`, or `BLOCKED`.
+9. Final report format.
 
 ## Final Deliverables
 
@@ -174,5 +175,6 @@ The completed loop should produce:
 - aiter_ck / aiter_asm comparison when available.
 - Split-K table if split-K changed.
 - Profile evidence if profiling influenced the edit.
+- Formal outcome: `IMPROVEMENT`, `NO-GO`, or `BLOCKED`.
 - Known unsupported regimes or regressions.
 - Exact reproduction commands.

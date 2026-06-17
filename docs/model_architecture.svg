@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1320" height="760" viewBox="0 0 1320 760" role="img" aria-labelledby="title desc">
   <title id="title">ROCm KDA Pilot workflow and model map</title>
-  <desc id="desc">A pipeline diagram showing the ROCm KDA Pilot repo, the FlyDSL experiment branch, Humanize plan and RLCR phases, Codex review phases, checkpoint files, and the current model assignments.</desc>
+  <desc id="desc">A pipeline diagram showing the ROCm KDA Pilot repo, the FlyDSL optimization branch, Humanize plan and RLCR phases, Codex review phases, checkpoint files, and the current model assignments.</desc>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="8" markerHeight="8" orient="auto">
       <path d="M 0 0 L 10 5 L 0 10 z" fill="#1f2937"/>
@@ -34,7 +34,7 @@
 
   <rect class="bg" width="1320" height="760"/>
   <text class="title" x="42" y="50">ROCm KDA Pilot: FlyDSL FlashAttention Workflow and Model Map</text>
-  <text class="subtitle" x="42" y="78">Kernel code lands in the FlyDSL experiment branch. Humanize state is the checkpoint; Codex flags only affect Codex calls.</text>
+  <text class="subtitle" x="42" y="78">Kernel code lands in the FlyDSL optimization branch. Humanize state is the checkpoint; Codex flags only affect Codex calls.</text>
 
   <rect class="lane" x="34" y="106" width="1252" height="145"/>
   <text class="lane-title" x="58" y="132">REPOSITORIES AND BRANCHES</text>
@@ -44,7 +44,7 @@
   <text class="mono" x="78" y="203">jhinpan/rocm-KDA-pilot:main</text>
 
   <rect class="box worktree" x="392" y="145" width="360" height="84"/>
-  <text class="h1" x="412" y="172">FlyDSL experiment branch</text>
+  <text class="h1" x="412" y="172">FlyDSL optimization branch</text>
   <text class="mono" x="412" y="196">jhinpan/FlyDSL-lab</text>
   <text class="mono" x="412" y="216">kda/flydsl-flashattn-gfx950-pr683</text>
 

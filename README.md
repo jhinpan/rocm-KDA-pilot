@@ -1,621 +1,265 @@
 # ROCm KDA Pilot
 
-ROCm KDA Pilot is a small workflow repo for running a BBuf/KDA-Pilot-style
-Humanize loop on AMD ROCm kernel optimization tasks.
+ROCm KDA Pilot is a workflow scaffold for running Humanize/KDA-style AMD ROCm
+kernel optimization loops.
 
-The first supported example is **optimizing
-[`ROCm/FlyDSL`](https://github.com/ROCm/FlyDSL) FlashAttention forward on
-gfx950 / MI350X-MI355X**, starting from
-[`ROCm/FlyDSL#683`](https://github.com/ROCm/FlyDSL/pull/683) and using
-[`ROCm/FlyDSL#670`](https://github.com/ROCm/FlyDSL/pull/670) as historical
-context.
-
-This repo assumes only this much is already installed on your Docker image or
-node:
-
-- Native Claude Code: `claude`
-- Native OpenAI Codex CLI: `codex`
-- A working ROCm/FlyDSL build environment for the target GPU
-
-Everything else in the workflow is installed or wired up from here.
-
-## Terminology (canonical)
-
-To avoid ambiguity, this repo uses these terms consistently:
-
-- **Session** — one full Humanize RLCR loop: a single `start-rlcr-loop`
-  invocation from round 0 through the finalize phase, identified by its loop
-  directory timestamp. A session typically runs **8–12 rounds** before it
-  converges.
-- **Round** — one implement → write-summary → Codex-review iteration *inside* a
-  session.
-- **Experiment** — one session's worth of optimization work on the target,
-  recorded as one entry under [`results/`](results/).
-
-So: **Experiment 01 = Session 1** (the dispatch-gate win, which ran 8 rounds).
-The deeper kernel-body work is **Session 2 / Experiment 02** and will itself run
-its own 8–12 rounds. "Deep" describes the *session's scope* (kernel-body, breadth
-scored), not a round number.
-
-## What This Repo Provides
-
-- A Humanize task draft template for FlyDSL FlashAttention on gfx950.
-- A project skill, `rocm-kda-pilot`, that tells Claude how to run this workflow.
-- Submodules for:
-  - [`jhinpan/ROCmKernelWiki`](https://github.com/jhinpan/ROCmKernelWiki)
-  - [`jhinpan/flydsl-rocprof-cli`](https://github.com/jhinpan/flydsl-rocprof-cli)
-  - [`jhinpan/rocm-report-skill`](https://github.com/jhinpan/rocm-report-skill)
-- A bootstrap script that links the skills into Claude Code and installs
-  `flyprof`.
-- A prepare script that copies the FlashAttention gfx950 draft into a FlyDSL
-  worktree and prints the exact Humanize slash commands to run.
-
-Humanize itself is not vendored here. Install it from the upstream
-`PolyArch/humanize` Claude Code marketplace.
-
-## Model Architecture Map
-
-The workflow has two repositories and two model families in play:
-
-- `jhinpan/rocm-KDA-pilot` is the workflow repo. It holds templates, scripts,
-  skills, and docs.
-- `jhinpan/FlyDSL-lab` is the FlyDSL fork where kernel experiments actually
-  happen.
-- Claude Code runs the implementation loop and Humanize slash commands.
-- Codex is called by Humanize for independent analysis and review.
-
-![ROCm KDA Pilot model architecture](docs/model_architecture.svg)
-
-For the current FlashAttention gfx950 flow, acceptance happens in
-`jhinpan/FlyDSL-lab` on:
+The core idea is simple:
 
 ```text
-kda/flydsl-flashattn-gfx950-pr683
+GitHub issue -> Humanize draft -> Humanize plan -> RLCR loop -> result report
 ```
 
-Review it against:
+This repository does not contain the optimized kernels themselves. It holds the
+task framing, skills, templates, scripts, benchmark rules, and result summaries.
+Kernel code lands in the target worktree, currently
+[`jhinpan/FlyDSL-lab`](https://github.com/jhinpan/FlyDSL-lab), reviewed against a
+locked baseline branch.
+
+## What This Repo Is For
+
+- Capture kernel-optimization tasks as GitHub issues.
+- Turn those issues into Humanize draft documents.
+- Ask Humanize to generate executable plans from those drafts.
+- Run RLCR loops where Claude implements and Codex reviews.
+- Record `IMPROVEMENT`, `NO-GO`, and `BLOCKED` outcomes with reproducible
+  benchmark evidence.
+
+The first worked example is FlyDSL FlashAttention forward on gfx950 / MI350X,
+using [`ROCm/FlyDSL`](https://github.com/ROCm/FlyDSL) as the target project.
+The detailed write-ups live under [`results/`](results/).
+
+## Issue As Draft
+
+Yes: for our actual workflow, the GitHub issue should be treated as the canonical
+draft source.
+
+The issue should say what we want, why it matters, what baseline/review branch to
+use, what correctness cannot be weakened, what benchmark or profiling evidence
+counts, and what final deliverables are expected. Humanize then converts that
+draft into a plan that the RLCR loop can execute and review.
+
+Recommended shape:
 
 ```text
-rocm-kda-base/flydsl-flashattn-gfx950-pr683
+GitHub issue
+  -> snapshot to .humanize/kernel-agent/draft.md
+  -> /humanize:gen-plan
+  -> review .humanize/kernel-agent/refined-plan.md
+  -> /humanize:start-rlcr-loop
+  -> record result under results/
 ```
 
-`rocm-KDA-pilot` is not where optimized kernel code lands.
+Why snapshot the issue into `draft.md` instead of pointing the loop at a moving
+issue page? Because the plan should be generated from a stable task contract.
+Later comments can become a new draft, a refined plan, or a follow-up issue.
 
-Current model usage:
+To materialize an issue as a draft from inside the target worktree:
 
-| Stage | Worker | Current model behavior |
-|---|---|---|
-| Claude Code main session | Implements code, runs shell commands, drives Humanize | Whatever Claude Code was launched with; for our runs this should be Opus 4.8 |
-| `/humanize:gen-plan` main work | Claude Code plus Humanize | Main Claude session model |
-| `gen-plan` draft relevance check | Humanize subagent | Haiku in upstream Humanize |
-| RLCR plan compliance pre-check | Humanize subagent | Sonnet in upstream Humanize |
-| RLCR plan quiz | Humanize subagent | Opus in upstream Humanize, but skipped when using `--skip-quiz` |
-| RLCR coding tasks | Claude Code main session | Should be Opus 4.8 if Claude Code was launched that way |
-| RLCR analyze / ask-Codex tasks | Codex CLI | Intended as `gpt-5.5:xhigh` when passed through the RLCR command/config |
-| RLCR stop-hook review summary | Codex CLI | Intended as `gpt-5.5:xhigh` |
-| RLCR final Codex review | Codex CLI | Uses `gpt-5.5`; current upstream Humanize may still keep review effort at `high` |
+```bash
+mkdir -p .humanize/kernel-agent
+ISSUE_URL="https://github.com/jhinpan/rocm-KDA-pilot/issues/<number>"
+{
+  echo "# Humanize Draft From GitHub Issue"
+  echo
+  gh issue view "$ISSUE_URL" --comments
+} > .humanize/kernel-agent/draft.md
+```
 
-Important: `--codex-model gpt-5.5:xhigh` controls Codex-side calls. It does
-not force Humanize's Claude subagents from Sonnet/Haiku to Opus 4.8. If we want
-all Claude-side agents to use Opus 4.8, that should be a later Humanize plugin
-or config patch, not an assumption made by this README.
+For new tasks, start from the issue template:
+[`Humanize kernel task`](.github/ISSUE_TEMPLATE/humanize-task.md).
 
-## 1. Clone This Repo
+## Repository Layout
+
+| Path | Purpose |
+|---|---|
+| [`templates/`](templates/) | Draft templates for known task families. Useful when bootstrapping an issue or a first run. |
+| [`skills/rocm-kda-pilot/`](skills/rocm-kda-pilot/) | Project skill that tells Claude how to run this workflow. |
+| [`scripts/bootstrap.sh`](scripts/bootstrap.sh) | Links skills and installs local helper tooling. |
+| [`scripts/prepare_flydsl_flashattn_task.sh`](scripts/prepare_flydsl_flashattn_task.sh) | Creates a FlashAttention draft in a FlyDSL worktree. |
+| [`scripts/preflight.sh`](scripts/preflight.sh) | Checks Codex model naming and FlyDSL runtime bindings before RLCR. |
+| [`docs/`](docs/) | Short contracts for Humanize flow, benchmark rules, profiling rules, FlashAttention invariants, and terminology. |
+| [`results/`](results/) | Completed loop result reports. |
+| [`external/`](external/) | Submodules for ROCmKernelWiki, flyprof tooling, and ROCm report skill. |
+
+Humanize itself is not vendored here. Install it from
+[`PolyArch/humanize`](https://github.com/PolyArch/humanize).
+
+## Quick Start
+
+Clone with submodules:
 
 ```bash
 git clone --recurse-submodules https://github.com/jhinpan/rocm-KDA-pilot.git
 cd rocm-KDA-pilot
 ```
 
-If you already cloned without submodules:
+If already cloned:
 
 ```bash
 git submodule update --init --recursive
 ```
 
-## 2. Bootstrap Skills And flyprof
-
-Run:
+Bootstrap helper skills and `flyprof`:
 
 ```bash
 bash scripts/bootstrap.sh
 ```
 
-This does four things:
-
-1. Initializes submodules.
-2. Links these skills into `~/.claude/skills/`:
-   - `ROCmKernelWiki`
-   - `rocm-report-skill`
-   - `rocm-kda-pilot`
-   - `flyprof-*` skills from `flydsl-rocprof-cli`
-3. Installs ROCmKernelWiki Python requirements.
-4. Installs `flyprof` from `external/flydsl-rocprof-cli` with `pip install -e`.
-
-Verify:
-
-```bash
-codex --version
-claude --version
-python3 external/ROCmKernelWiki/scripts/query.py "FlyDSL flash attention gfx950" --limit 3 --compact
-flyprof doctor -f json
-```
-
-`flyprof doctor` can fail on a laptop or non-ROCm login node. That is fine for
-setup; it must pass on the GPU node where profiling is collected.
-
-## 3. Install Humanize In Claude Code
-
-Start Claude Code anywhere, then run the slash commands below **one at a
-time**. Wait for each command to finish before entering the next one.
-
-First add the Humanize marketplace:
+Install Humanize in Claude Code:
 
 ```text
 /plugin marketplace add https://github.com/PolyArch/humanize.git
-```
-
-Then install the plugin:
-
-```text
 /plugin install humanize@PolyArch
-```
-
-Reload Claude Code's plugin registry:
-
-```text
 /reload-plugins
 ```
 
-Now verify the Humanize commands are available:
+Verify the commands exist:
 
 ```text
 /humanize:gen-plan
-```
-
-You should also be able to use:
-
-```text
 /humanize:start-rlcr-loop
 /humanize:ask-codex
 ```
 
-Do not paste multiple slash commands at once. Some Claude Code versions
-concatenate pasted slash-command lines and turn the second command into part of
-the first command's URL.
+Do not paste multiple Claude slash commands at once; some Claude Code versions
+concatenate pasted slash-command lines.
 
-If a previous failed attempt left a bad marketplace entry, remove it first:
+## Running A Task
 
-```text
-/plugin marketplace remove PolyArch
-```
+Use a target kernel worktree for the actual code changes. For FlyDSL work, that
+is usually a checkout of [`jhinpan/FlyDSL-lab`](https://github.com/jhinpan/FlyDSL-lab).
 
-Then repeat the add, install, reload, and verify steps above.
-
-If your Claude Code build supports shell plugin commands, this equivalent may
-also work outside the Claude UI:
+From the target worktree, create or copy the issue-backed draft:
 
 ```bash
-claude plugin marketplace add https://github.com/PolyArch/humanize.git
-claude plugin install humanize@PolyArch
+mkdir -p .humanize/kernel-agent
+gh issue view "https://github.com/jhinpan/rocm-KDA-pilot/issues/<number>" --comments \
+  > .humanize/kernel-agent/draft.md
 ```
 
-After using shell plugin commands, return to Claude Code and run:
-
-```text
-/reload-plugins
-```
-
-If `/reload-plugins` is unavailable or the `/humanize:*` commands still do not
-show up, fully exit and restart Claude Code in the target worktree.
-
-## 4. Prepare A FlyDSL FlashAttention Worktree
-
-Use our FlyDSL fork as the working repository and keep it synchronized with
-upstream. In this workflow:
-
-- `origin` is our fork: [`jhinpan/FlyDSL-lab`](https://github.com/jhinpan/FlyDSL-lab)
-- `upstream` is AMD's repo: [`ROCm/FlyDSL`](https://github.com/ROCm/FlyDSL)
-- [`ROCm/FlyDSL#683`](https://github.com/ROCm/FlyDSL/pull/683) is the working
-  FlashAttention baseline for this example. It adds a gfx950 dualwave
-  software-pipelined FMHA forward kernel, split-K support, packed-QKV variable
-  length routing through `cu_seqlens`, arbitrary `seq_len >= 1` coverage, and a
-  gfx942-safe generic fallback. Its `tests/kernels/test_flash_attn_fwd.py`
-  harness is the correctness and benchmark contract for this workflow.
-- [`ROCm/FlyDSL#670`](https://github.com/ROCm/FlyDSL/pull/670) is historical
-  optimization context. It introduced the dwordx4 O-store direction for the
-  gfx950 dualwave FlashAttention forward path and explored flash-decoding
-  split-K via `num_kv_splits`.
-  [`ROCm/FlyDSL#683`](https://github.com/ROCm/FlyDSL/pull/683) already absorbs
-  the important FlashAttention pieces, so use
-  [`ROCm/FlyDSL#670`](https://github.com/ROCm/FlyDSL/pull/670) as prior art
-  rather than as the active baseline branch.
-
-First sync the fork's `main` branch with upstream using GitHub CLI:
+For the FlashAttention example, the helper script can still generate the draft
+from a checked-in template:
 
 ```bash
-gh repo sync jhinpan/FlyDSL-lab --source ROCm/FlyDSL --branch main
+# from this repo
+bash scripts/prepare_flydsl_flashattn_task.sh /path/to/FlyDSL-worktree
+
+# for the deeper follow-up contract
+bash scripts/prepare_flydsl_flashattn_task.sh --deep /path/to/FlyDSL-worktree
 ```
 
-Then clone our fork and add `upstream` explicitly:
+Run preflight before starting the loop:
 
 ```bash
-gh repo clone jhinpan/FlyDSL-lab FlyDSL-fa-kda
-cd FlyDSL-fa-kda
-
-git remote add upstream https://github.com/ROCm/FlyDSL.git 2>/dev/null || \
-  git remote set-url upstream https://github.com/ROCm/FlyDSL.git
-git fetch origin main
-git fetch upstream main pull/683/head:pr-683 pull/670/head:pr-670
+bash scripts/preflight.sh /path/to/FlyDSL-worktree --codex-model gpt-5.5:xhigh
 ```
 
-Create a clean local review base and an active experiment branch from
-[`ROCm/FlyDSL#683`](https://github.com/ROCm/FlyDSL/pull/683):
+Start Claude Code in the target worktree:
 
 ```bash
-git switch -c kda/flydsl-flashattn-gfx950-pr683 pr-683
-git branch rocm-kda-base/flydsl-flashattn-gfx950-pr683 pr-683
-```
-
-Push both branches to our fork so runs are reproducible and visible:
-
-```bash
-git push -u origin kda/flydsl-flashattn-gfx950-pr683
-git push -u origin rocm-kda-base/flydsl-flashattn-gfx950-pr683
-```
-
-Branch roles:
-
-| Branch | Role | Push? |
-|---|---|---|
-| `main` | Synced fork mirror of `ROCm/FlyDSL:main` | yes, via `gh repo sync` |
-| `pr-683` | Local copy of upstream [`ROCm/FlyDSL#683`](https://github.com/ROCm/FlyDSL/pull/683) head | no, local reference is enough |
-| `pr-670` | Local copy of upstream [`ROCm/FlyDSL#670`](https://github.com/ROCm/FlyDSL/pull/670) head | no, local reference is enough |
-| `rocm-kda-base/flydsl-flashattn-gfx950-pr683` | Immutable Humanize/Codex review base | yes |
-| `kda/flydsl-flashattn-gfx950-pr683` | Active Humanize optimization branch | yes |
-
-For later experiments, create new branches from the same base and push them:
-
-```bash
-git switch -c kda/flydsl-fa-gfx950-<experiment-name> rocm-kda-base/flydsl-flashattn-gfx950-pr683
-git push -u origin HEAD
-```
-
-Current reference SHAs observed on 2026-06-15:
-
-| Ref | SHA |
-|---|---|
-| [`ROCm/FlyDSL:main`](https://github.com/ROCm/FlyDSL/tree/main) | `9317e117d9fb201261544f2f2079cd03ac7d32aa` |
-| [`ROCm/FlyDSL#670`](https://github.com/ROCm/FlyDSL/pull/670) | `ca36714e80e675528c2ecd66083cdbc2be6dfb5a` |
-| [`ROCm/FlyDSL#683`](https://github.com/ROCm/FlyDSL/pull/683) | `8fb654a062cd2de7627efb237902f61e726727ff` |
-
-If these refs changed, use the latest PR head and record the new SHA in the
-draft before starting RLCR.
-
-## 5. Create The Humanize Draft
-
-From the `rocm-KDA-pilot` checkout:
-
-```bash
-bash scripts/prepare_flydsl_flashattn_task.sh /path/to/FlyDSL-fa-kda
-```
-
-The script writes:
-
-```text
-/path/to/FlyDSL-fa-kda/.humanize/kernel-agent/draft.md
-```
-
-It also appends `.humanize*` to the FlyDSL worktree `.gitignore` if missing.
-
-The draft is intentionally explicit: it is a plan request for **FlashAttention
-forward on gfx950**, with
-[`ROCm/FlyDSL#683`](https://github.com/ROCm/FlyDSL/pull/683)'s test/benchmark
-harness as the correctness and performance contract.
-
-Review the generated draft before asking Humanize to turn it into a plan. From
-the `rocm-KDA-pilot` checkout, you can inspect it in the terminal:
-
-```bash
-bash scripts/review_humanize_artifact.sh /path/to/FlyDSL-fa-kda draft --terminal
-```
-
-If you are already inside the FlyDSL worktree, the direct command is:
-
-```bash
-less .humanize/kernel-agent/draft.md
-```
-
-Or generate an HTML preview:
-
-```bash
-bash scripts/review_humanize_artifact.sh /path/to/FlyDSL-fa-kda draft --html
-```
-
-The generated HTML path is:
-
-```text
-/path/to/FlyDSL-fa-kda/.humanize/kernel-agent/draft.html
-```
-
-To review in a browser from a terminal-only node:
-
-```bash
-bash scripts/review_humanize_artifact.sh /path/to/FlyDSL-fa-kda draft --serve 8765
-```
-
-Then open:
-
-```text
-http://127.0.0.1:8765/draft.html
-```
-
-If the GPU node is remote, forward the port from your laptop first, for example:
-
-```bash
-ssh -L 8765:127.0.0.1:8765 <user>@<gpu-node>
-```
-
-## 6. Start Claude Code In The FlyDSL Worktree
-
-```bash
-cd /path/to/FlyDSL-fa-kda
+cd /path/to/FlyDSL-worktree
 claude --permission-mode bypassPermissions
 ```
 
-If your team uses a different Claude Code YOLO flag, use your normal equivalent.
-The workflow does not require bypass mode, but long kernel optimization loops
-are usually smoother when permissions are pre-approved inside a trusted Docker
-or GPU node.
-
-## 7. Generate The Plan
-
-Inside Claude Code, run:
+Generate the plan:
 
 ```text
 /humanize:gen-plan --input .humanize/kernel-agent/draft.md --output .humanize/kernel-agent/refined-plan.md --direct
 ```
 
-Before starting RLCR, review:
-
-```text
-.humanize/kernel-agent/refined-plan.md
-```
-
-From the `rocm-KDA-pilot` checkout:
-
-```bash
-bash scripts/review_humanize_artifact.sh /path/to/FlyDSL-fa-kda refined --terminal
-bash scripts/review_humanize_artifact.sh /path/to/FlyDSL-fa-kda refined --html
-```
-
-Or directly from the FlyDSL worktree:
+Review the plan before executing it:
 
 ```bash
 less .humanize/kernel-agent/refined-plan.md
 ```
 
-The plan should clearly preserve:
-
-- [`ROCm/FlyDSL#683`](https://github.com/ROCm/FlyDSL/pull/683) correctness
-  semantics.
-- gfx950 dualwave SWP focus.
-- bf16/fp16, causal/non-causal, MHA/GQA.
-- varlen `cu_seqlens` coverage.
-- arbitrary `seq_len >= 1`.
-- split-K behavior.
-- gfx942 fallback safety.
-- [`ROCm/FlyDSL#683`](https://github.com/ROCm/FlyDSL/pull/683)
-  `tests/kernels/test_flash_attn_fwd.py` as the test/bench harness.
-
-If it tries to replace the harness with a toy benchmark, regenerate or edit the
-draft and run `gen-plan` again.
-
-## 8. Start The Humanize RLCR Loop
-
-Inside Claude Code, run:
+Start RLCR:
 
 ```text
-/humanize:start-rlcr-loop .humanize/kernel-agent/refined-plan.md --skip-quiz --claude-answer-codex --max 12 --codex-model gpt-5.5:xhigh --codex-timeout 5400 --base-branch rocm-kda-base/flydsl-flashattn-gfx950-pr683
+/humanize:start-rlcr-loop .humanize/kernel-agent/refined-plan.md --skip-quiz --claude-answer-codex --max 12 --codex-model gpt-5.5:xhigh --codex-timeout 5400 --base-branch <locked-baseline-branch>
 ```
 
-This starts the Humanize loop where Claude implements and Codex reviews. The
-loop state lives under `.humanize/rlcr/<timestamp>/` and should stay untracked.
-The Codex-side RLCR model/effort request is `gpt-5.5:xhigh` because this is
-what we normally use for kernel-design review. See the model architecture map
-above for the exact split between Claude main-agent work, Humanize subagents,
-and Codex calls, including the current caveat around final Codex review effort.
+Use the exact baseline branch for the task. Do not guess it. Humanize/Codex
+review quality depends on a clean, immutable comparison base.
 
-Model name gotcha: keep the hyphen in `gpt-5.5:xhigh`. Do not use
-`gpt5.5:xhigh`. Humanize stores the model name in RLCR state, so a missing
-hyphen can turn into a broken stored model such as `gpt5.5`, while the working
-Codex/Azure deployment is `gpt-5.5`.
+## FlashAttention Example And Results
 
-If you already started a loop with the wrong model name and Claude reports that
-the Codex review cannot run, prefer restarting the loop instead of editing
-`.humanize/rlcr/<timestamp>/state.md` by hand:
+FlashAttention forward on gfx950 is now an example/result set, not the whole
+identity of this repo.
 
-```text
-/humanize:cancel-rlcr-loop
-/humanize:start-rlcr-loop .humanize/kernel-agent/refined-plan.md --skip-quiz --claude-answer-codex --max 12 --codex-model gpt-5.5:xhigh --codex-timeout 5400 --base-branch rocm-kda-base/flydsl-flashattn-gfx950-pr683
-```
+The original example was grounded in:
 
-Before restarting, check the FlyDSL worktree:
+- [`ROCm/FlyDSL#683`](https://github.com/ROCm/FlyDSL/pull/683): the working
+  FlashAttention baseline and canonical test/benchmark harness.
+- [`ROCm/FlyDSL#670`](https://github.com/ROCm/FlyDSL/pull/670): historical
+  optimization context for dwordx4 O-store and split-K direction.
+- [`jhinpan/FlyDSL-lab`](https://github.com/jhinpan/FlyDSL-lab): the working fork
+  where optimization branches were pushed.
 
-```bash
-git status
-git log -1 --oneline
-```
+Completed loops:
 
-If the previous round already committed useful work, keep that commit on the
-active experiment branch and restart RLCR from the clean tree. The acceptance
-diff is still against `rocm-kda-base/flydsl-flashattn-gfx950-pr683`.
+| Loop | Result | Takeaway |
+|---|---|---|
+| [`01`](results/loop-01-flashattn-gfx950.md) | `IMPROVEMENT`: promoted dispatch win, about `1.56x` mean speedup for dense `S=128`; correctness and coverage preserved; upstream draft PR [`ROCm/FlyDSL#685`](https://github.com/ROCm/FlyDSL/pull/685). | The first draft rewarded "at least one promoted candidate", so the loop found the cheapest safe win: dispatch routing. |
+| [`02`](results/loop-02-flashattn-gfx950-deep.md) | `NO-GO`: no in-body optimization of the long dualwave kernel was landable. | The kernel body is at a barrier/occupancy co-optimum; credible in-body levers were load-bearing, neutral, or slower. |
+| [`03`](results/loop-03-flashattn-gfx950-variant.md) | `NO-GO`: no short/mid specialized variant cleared the bar; best lever was about `1%`, below the promotion bar. | After the dispatch gate, FlyDSL is already competitive across most of the family; the remaining small-batch mid-sequence gap is structural. |
 
-## 9. What The Agent Should Run
+For a browser-friendly retrospective, open
+[`results/loops-summary.html`](results/loops-summary.html).
 
-Quick correctness smoke:
+The important process lesson is that `NO-GO` is a valid deliverable when it is
+backed by correctness, benchmark, profiling, and ISA evidence.
 
-```bash
-HIP_VISIBLE_DEVICES=$GPU python3 tests/kernels/test_flash_attn_fwd.py --dtype bf16 --causal --warmup 3 --iters 5
-```
+## Benchmark And Profiling Contracts
 
-Full [`ROCm/FlyDSL#683`](https://github.com/ROCm/FlyDSL/pull/683)
-correctness/perf sweep:
+Keep the runtime contract short and explicit:
 
-```bash
-HIP_VISIBLE_DEVICES=$GPU python3 tests/kernels/test_flash_attn_fwd.py --warmup 10 --iters 20
-```
+- Use the same harness, input distribution, GPU, dtype, causal mode, warmup, and
+  iteration count for baseline and candidate.
+- Preserve correctness thresholds and coverage.
+- Report per-shape timings, grouped averages or geomean, exact command, commit,
+  GPU, and artifact paths.
+- Profile only to answer a named question.
+- Keep raw profile/trace artifacts untracked; commit summaries and small reports.
 
-Promotion comparison sweep:
+References:
 
-```bash
-HIP_VISIBLE_DEVICES=$GPU python3 tests/kernels/test_flash_attn_fwd.py --compare --warmup 10 --iters 100
-```
+- [`docs/benchmark_contract.md`](docs/benchmark_contract.md)
+- [`docs/profiling_contract.md`](docs/profiling_contract.md)
+- [`docs/flydsl_flashattn_rules.md`](docs/flydsl_flashattn_rules.md)
+- [`docs/humanize_flow.md`](docs/humanize_flow.md)
 
-Focused split-K examples:
+## Terminology
 
-```bash
-HIP_VISIBLE_DEVICES=$GPU python3 tests/kernels/test_flash_attn_fwd.py --batch 1 --seq_len 8192 --num_heads 4 --num_kv_heads 4 --head_dim 128 --num_kv_splits 2 --dtype bf16 --warmup 10 --iters 100
-```
+The canonical outcome unit is a **loop**. We do not distinguish between
+multiple names for that same unit in this repo.
 
-ROCmKernelWiki examples:
+- **Draft**: the task contract Humanize reads first. In our workflow, this is
+  usually a snapshot of a GitHub issue.
+- **Plan**: the executable implementation contract generated from the draft and
+  reviewed by the human before RLCR starts.
+- **Loop**: one outcome-bearing `/humanize:start-rlcr-loop` run. A loop contains
+  multiple rounds and ends in a result: `IMPROVEMENT`, `NO-GO`, `BLOCKED`, or an
+  explicitly cancelled/deferred follow-up.
+- **Round**: one completion-attempt/review boundary inside a loop: Claude
+  believes the plan is complete, writes a summary, and Codex reviews that
+  summary and/or diff. A round is not one task, milestone, or candidate.
+- **AC**: acceptance criterion. A numbered condition from the plan, such as
+  "AC-4: no dispatch-only win counts for this loop."
+- **DEC**: decision record. A numbered human/operator decision that changes or
+  clarifies scope, such as accepting an evidence-backed `NO-GO` or lifting a
+  constraint.
+- **Candidate**: one proposed optimization tried inside a loop.
+- **Promotion**: accepting a candidate because it passed correctness,
+  performance, and evidence gates.
+- **NO-GO**: a valid loop result where no candidate clears the bar, but the loop
+  produces enough evidence to explain why. This is the formal outcome name; it
+  replaces the looser phrase "negative result."
 
-```bash
-python3 ~/.claude/skills/ROCmKernelWiki/scripts/query.py "FlyDSL flash attention gfx950 waitcnt MFMA LDS" --limit 8 --compact
-python3 ~/.claude/skills/ROCmKernelWiki/scripts/get_page.py kernel-flydsl-flash-attention --follow-sources
-```
+See [`docs/terminology.md`](docs/terminology.md) for the full glossary and the
+Claude/Codex interaction model.
 
-flyprof examples:
-
-```bash
-flyprof doctor -f json
-flyprof list --worktree "$PWD" -f json
-flyprof run flash_attn_fwd --worktree "$PWD" --gpu "$GPU" --bundle "profile/flydsl-fa-gfx950-$(date +%Y%m%d-%H%M%S)/flyprof" -f json
-```
-
-## 10. Promotion Rules
-
-A candidate is promotable only if:
-
-- The relevant [`ROCm/FlyDSL#683`](https://github.com/ROCm/FlyDSL/pull/683)
-  correctness rows pass.
-- No correctness threshold was weakened.
-- The benchmark uses the same input distribution, warmup, iteration count, GPU,
-  dtype, causal mode, and reference path as the baseline.
-- Performance is reported per shape plus grouped averages or geomean.
-- Any profile-backed claim names exact commands and artifacts.
-- Failed attempts are recorded instead of silently discarded.
-
-Do not claim a win from a single noisy run. Re-run near-threshold results and
-record GPU state.
-
-## 11. Expected Final Deliverables
-
-The final Humanize/KDA result should include:
-
-- Changed source files and a short design summary.
-- Correctness table.
-- FlyDSL baseline table.
-- Candidate table.
-- aiter_ck / aiter_asm comparison when available.
-- Focused split-K table if split-K changed.
-- Profile report if profiling influenced the edit.
-- Known regressions or unsupported regimes.
-- Exact reproduction commands.
-
-## 11.5 Results / Experiment Log
-
-Completed runs are tracked under [`results/`](results/) so we can see how the
-workflow actually performs over time, not just whether a single loop finished.
-
-| # | Target | Outcome | Upstream PR | Notes |
-|---|--------|---------|-------------|-------|
-| 01 | FlyDSL FlashAttention fwd, gfx950 (MI350X) | 1 promoted win: dense short-seq (`S<256`) dispatch gate, **~1.56× at S=128**; correctness + coverage preserved | [ROCm/FlyDSL#685](https://github.com/ROCm/FlyDSL/pull/685) (draft) | Narrow by design — see write-up. Methodology feedback: [humanize#193 comment](https://github.com/PolyArch/humanize/issues/193), [humanize#216](https://github.com/PolyArch/humanize/issues/216) |
-
-Full write-up: [`results/experiment-01-flashattn-gfx950.md`](results/experiment-01-flashattn-gfx950.md).
-
-**The honest takeaway from experiment 01:** Session 1 ran 8 rounds and produced a
-*correct but narrow* win (one small shape family). That was a consequence of the
-draft's reward shape (the lower bound only required "≥1 promoted candidate", so
-the risk-averse loop took the cheapest safe win and stopped), not a hardware
-limit. Getting #683-style **broad** speedups needs a differently-structured
-*next session* — see below.
-
-## 11.6 Running A Deeper Session
-
-A common situation: a session runs for many rounds (8–12), finishes cleanly, but
-the *optimization* is shallow (a single small case). You do not necessarily need
-to re-architect the workflow — you need a **new draft that rewards depth and
-breadth**, plus a re-based baseline, run as a fresh session. ("Deep" describes the
-session's scope, not a round number; the deep session still runs its own 8–12
-rounds.) Here is the recipe.
-
-### Step 1 — Re-base the baseline against `upstream/main`
-
-PR683 is now **merged into `ROCm/FlyDSL@main`**, so the next session no longer
-compares against a PR head. Re-base the working branch and rebuild the baseline:
-
-```bash
-cd <your FlyDSL-lab worktree>
-git fetch upstream
-# new working branch off current upstream/main (which now contains #683):
-git checkout -b kda/flydsl-flashattn-gfx950-deep upstream/main
-# if experiment 01's dispatch gate (ROCm/FlyDSL#685) is not yet merged, apply it
-# first so this session optimizes on top of it, then make THAT the locked baseline.
-```
-
-The deep-session baseline is **`upstream/main` + the experiment-01 dispatch
-gate**. Beating that is the bar; re-deriving the short-seq dispatch win does
-**not** count as progress.
-
-### Step 2 — Use the DEEP draft, not the original
-
-Generate the plan from
-[`templates/flydsl_flashattn_gfx950_deep_contract.md`](templates/flydsl_flashattn_gfx950_deep_contract.md)
-instead of the original contract. The deep draft differs in the ways that matter:
-
-- **Lower bound forbids a dispatch-only / knob-only win** — the deep session
-  *must* land a kernel-body change in `flash_attn_gfx950.py`.
-- **Promotion is breadth-scored** — improve a named family of buckets (or the
-  overall geomean), reported per-bucket *and* as a geomean, not "≥1 candidate".
-- **Deep levers are pre-authorized as milestones with sub-steps** (occupancy /
-  VGPR reduction, LDS prefetch-depth re-architecture, provable barrier
-  relaxation) instead of being "last resort" single isolated changes — because
-  the real depth levers are inherently multi-step.
-- It carries forward experiment-01's profiling map (short/mid buckets are
-  memory-bound: `vmcnt` + `s_barrier`; occupancy capped at 4 waves/CU) so the
-  deep session starts from evidence, not from scratch.
-
-### Step 3 — Prepare and run as a fresh session
-
-```bash
-# prepare a worktree with the DEEP draft, then preflight, then run the session:
-bash scripts/prepare_flydsl_flashattn_task.sh --deep <worktree>
-bash scripts/preflight.sh <worktree> --codex-model gpt-5.5:xhigh
-/humanize:gen-plan --input .humanize/kernel-agent/draft.md --output .humanize/kernel-agent/refined-plan.md --direct
-/humanize:start-rlcr-loop .humanize/kernel-agent/refined-plan.md --skip-quiz --claude-answer-codex \
-  --max 12 --codex-model gpt-5.5:xhigh --codex-timeout 5400 \
-  --base-branch <deep-session baseline branch>
-```
-
-### Do you need a brand-new draft, or just edit the old one?
-
-**A new draft.** The original contract is structurally biased toward a shallow win
-(its lower bound is satisfied by any one promoted candidate). Editing reward
-shape, promotion criteria, and the "isolated change" granularity rule in place is
-exactly what the deep draft does — so it is kept as a separate template rather
-than mutating the original, which is still the right starting point for a *first*
-pass on a new kernel.
-
-### When even the deep session underperforms
-
-If a deep session also plateaus (the structural levers don't pay off), that is a
-signal the bottleneck is genuinely hardware/algorithmic, not a missed knob. At
-that point the productive output is a **negative-result report** (what was tried,
-the profiling that shows why it can't be cheaply improved) rather than more
-rounds. The candidate ledger already captures this; promote it to a results entry.
-
-## 12. Repository Hygiene
+## Repository Hygiene
 
 Keep these untracked:
 
@@ -627,41 +271,36 @@ Keep these untracked:
 
 Commit only:
 
-- kernel source changes
-- harness changes that are part of the contract
+- source changes that are part of the candidate
+- harness changes that are part of the task contract
 - small summarized benchmark/profiling notes
 - ledgers and final reports
 
-## References, Credits, And Citations
-
-This workflow is intentionally small glue around other projects. Please cite and
-link the upstream repositories when publishing results produced with this repo.
+## References And Credits
 
 Directly used by this workflow:
 
-| Project | How ROCm KDA Pilot uses it |
+| Project | Role |
 |---|---|
-| [`ROCm/FlyDSL`](https://github.com/ROCm/FlyDSL) | Target compiler/runtime/kernel repository. The FlashAttention example optimizes its FlyDSL kernels. |
-| [`jhinpan/FlyDSL-lab`](https://github.com/jhinpan/FlyDSL-lab) | Our working FlyDSL fork where KDA experiment branches are pushed. |
-| [`ROCm/FlyDSL#683`](https://github.com/ROCm/FlyDSL/pull/683) | Working FlashAttention baseline and canonical test/benchmark harness for this example. |
-| [`ROCm/FlyDSL#670`](https://github.com/ROCm/FlyDSL/pull/670) | Historical FlashAttention optimization context, especially dwordx4 O-store and split-K direction. |
-| [`PolyArch/humanize`](https://github.com/PolyArch/humanize) | Humanize `gen-plan` and `start-rlcr-loop` command provider. |
-| [`jhinpan/ROCmKernelWiki`](https://github.com/jhinpan/ROCmKernelWiki) | AMD ROCm kernel knowledge skill used for gfx950/FlyDSL/attention prior art. |
-| [`jhinpan/flydsl-rocprof-cli`](https://github.com/jhinpan/flydsl-rocprof-cli) | `flyprof` profiling CLI and companion skills used for FlyDSL instruction-level diagnosis. |
-| [`jhinpan/rocm-report-skill`](https://github.com/jhinpan/rocm-report-skill) | ROCm profiling report skill used to turn rocprofv3/ATT evidence into testable optimization hypotheses. |
-| [`ROCm/aiter`](https://github.com/ROCm/aiter) | Optional comparison backend used by [`ROCm/FlyDSL#683`](https://github.com/ROCm/FlyDSL/pull/683)'s FlashAttention benchmark harness when installed. |
-| [`openai/codex`](https://github.com/openai/codex) | Codex CLI used by Humanize for independent review. |
+| [`ROCm/FlyDSL`](https://github.com/ROCm/FlyDSL) | Target compiler/runtime/kernel repository. |
+| [`jhinpan/FlyDSL-lab`](https://github.com/jhinpan/FlyDSL-lab) | Working fork where KDA optimization branches are pushed. |
+| [`PolyArch/humanize`](https://github.com/PolyArch/humanize) | `gen-plan` and `start-rlcr-loop` provider. |
+| [`jhinpan/ROCmKernelWiki`](https://github.com/jhinpan/ROCmKernelWiki) | ROCm kernel knowledge skill. |
+| [`jhinpan/flydsl-rocprof-cli`](https://github.com/jhinpan/flydsl-rocprof-cli) | `flyprof` profiling CLI and companion skills. |
+| [`jhinpan/rocm-report-skill`](https://github.com/jhinpan/rocm-report-skill) | Turns ROCm profiling artifacts into optimization hypotheses. |
+| [`ROCm/aiter`](https://github.com/ROCm/aiter) | Optional comparison backend for FlashAttention benchmarks. |
+| [`openai/codex`](https://github.com/openai/codex) | Independent review agent used by Humanize. |
 
-Workflow and methodology references:
+Methodology references:
 
 | Project | Relationship |
 |---|---|
-| [`BBuf/KDA-Pilot`](https://github.com/BBuf/KDA-Pilot) | Main inspiration for the task-owned worktree, Humanize RLCR, benchmark discipline, and evidence-led kernel optimization style. |
-| [`mit-han-lab/kernel-design-agents`](https://github.com/mit-han-lab/kernel-design-agents) | Minimal Kernel Design Agents reference workflow that inspired the K/R/W task framing. |
+| [`BBuf/KDA-Pilot`](https://github.com/BBuf/KDA-Pilot) | Main inspiration for task-owned worktrees and evidence-led kernel optimization. |
+| [`mit-han-lab/kernel-design-agents`](https://github.com/mit-han-lab/kernel-design-agents) | K/R/W task framing inspiration. |
 | [`mit-han-lab/KernelWiki`](https://github.com/mit-han-lab/KernelWiki) | Knowledge-base pattern that inspired ROCmKernelWiki. |
-| [`mit-han-lab/ncu-report-skill`](https://github.com/mit-han-lab/ncu-report-skill) | Nsight Compute report-skill methodology that inspired rocm-report-skill. |
+| [`mit-han-lab/ncu-report-skill`](https://github.com/mit-han-lab/ncu-report-skill) | Report-skill pattern that inspired rocm-report-skill. |
 
-Suggested citation for this repo:
+Suggested citation:
 
 ```bibtex
 @software{rocm_kda_pilot_2026,
@@ -669,6 +308,6 @@ Suggested citation for this repo:
   author       = {Jhin Pan},
   year         = {2026},
   url          = {https://github.com/jhinpan/rocm-KDA-pilot},
-  note         = {Workflow scaffold for FlyDSL FlashAttention optimization on gfx950}
+  note         = {Workflow scaffold for ROCm kernel optimization with FlyDSL FlashAttention results}
 }
 ```

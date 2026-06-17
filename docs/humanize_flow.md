@@ -2,6 +2,9 @@
 
 Run Humanize from the FlyDSL task worktree, not from this repo.
 
+See [`terminology.md`](terminology.md) for the canonical loop/round/AC/DEC
+definitions.
+
 1. Generate a plan:
 
 ```text

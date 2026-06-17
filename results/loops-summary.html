@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ROCm KDA Pilot — FlashAttention-fwd gfx950: Why Session 1 Worked and Sessions 2–3 Did Not</title>
+<title>ROCm KDA Pilot — FlashAttention-fwd gfx950: Why Loop 01 Worked and Loops 02–03 Did Not</title>
 <style>
   :root{
     --bg:#0d1117; --panel:#161b22; --panel2:#1c2330; --ink:#e6edf3; --muted:#9da7b3;
@@ -52,62 +52,62 @@
 <body>
 <div class="wrap">
 
-<h1>FlashAttention‑forward on gfx950 (MI350X):<br>Why Session 1 Worked, and Why Sessions 2 &amp; 3 Couldn't Go Deeper</h1>
-<p class="sub">A cross‑session retrospective of the ROCm KDA Pilot (Humanize / RLCR loop). Hardware: <b>MI350X · gfx950 only</b> (MI355X = planned follow‑up, not measured). Baseline: ROCm/FlyDSL #683 DUALWAVE_SWP forward kernel.</p>
-<p><span class="tag">Session 1 = Experiment 01</span><span class="tag">Session 2 = Experiment 02</span><span class="tag">Session 3 = Experiment 03</span></p>
+<h1>FlashAttention‑forward on gfx950 (MI350X):<br>Why Loop 01 Worked, and Why Loops 02 and 03 Couldn't Go Deeper</h1>
+<p class="sub">A cross‑loop retrospective of the ROCm KDA Pilot (Humanize / RLCR loop). Hardware: <b>MI350X · gfx950 only</b> (MI355X = planned follow‑up, not measured). Baseline: ROCm/FlyDSL #683 DUALWAVE_SWP forward kernel.</p>
+<p><span class="tag">Loop 01</span><span class="tag">Loop 02</span><span class="tag">Loop 03</span></p>
 
 <div class="grid">
   <div class="card">
-    <h4>Session 1 <span class="pill g">WIN — landed</span></h4>
+    <h4>Loop 01 <span class="pill g">IMPROVEMENT</span></h4>
     <div class="big win">~1.56×</div>
     <div class="lbl">dense S=128 (mean; 1.37–1.77×). A <b>dispatch‑routing</b> change. PR #685.</div>
   </div>
   <div class="card">
-    <h4>Session 2 <span class="pill r">negative result</span></h4>
+    <h4>Loop 02 <span class="pill r">NO-GO</span></h4>
     <div class="big loss">0 landed</div>
     <div class="lbl">In‑body kernel optimization. All levers rejected with evidence. Exited ~3 rounds.</div>
   </div>
   <div class="card">
-    <h4>Session 3 <span class="pill r">negative result</span></h4>
+    <h4>Loop 03 <span class="pill r">NO-GO</span></h4>
     <div class="big loss">best ~1%</div>
     <div class="lbl">Specialized short/mid variant. Best lever +1% (&lt; 5% bar). Exited round 9 via stagnation.</div>
   </div>
 </div>
 
 <div class="callout key">
-<b>The one‑sentence answer.</b> Session 1 won because it changed <b>which kernel runs</b> (dispatch routing) — a cheap, high‑leverage decision the existing kernels already made suboptimally. Sessions 2 &amp; 3 failed because they tried to make <b>the kernels themselves faster</b>, and the FlyDSL kernels are already sitting at a hardware co‑optimum (25% occupancy, barrier‑/latency‑bound) where every in‑body lever is either load‑bearing, occupancy‑locked, or structural to a schedule that already matches the vendor library on most shapes.
+<b>The one‑sentence answer.</b> Loop 01 won because it changed <b>which kernel runs</b> (dispatch routing) — a cheap, high‑leverage decision the existing kernels already made suboptimally. Loops 02 and 03 failed because they tried to make <b>the kernels themselves faster</b>, and the FlyDSL kernels are already sitting at a hardware co‑optimum (25% occupancy, barrier‑/latency‑bound) where every in‑body lever is either load‑bearing, occupancy‑locked, or structural to a schedule that already matches the vendor library on most shapes.
 </div>
 
-<h2>1 · What each session actually did</h2>
+<h2>1 · What each loop actually did</h2>
 <table>
-  <tr><th>Session</th><th>Goal</th><th>What was changed</th><th>Outcome</th></tr>
+  <tr><th>Loop</th><th>Goal</th><th>What was changed</th><th>Outcome</th></tr>
   <tr>
-    <td><b>1</b><br><span class="lbl">Exp‑01</span></td>
+    <td><b>Loop 01</b></td>
     <td>Land ≥1 safe speedup (lower‑bound permissive)</td>
     <td><b>Dispatch gate</b> <code>_DUALWAVE_MIN_DENSE_SEQ = 256</code>: dense <code>S&lt;256</code> → generic M128/M256; <code>S≥256</code> + varlen stay on DUALWAVE_SWP. <b>Kernel bodies untouched</b> (+57/−18, 1 file).</td>
-    <td class="win"><b>PROMOTED.</b> S=128 ~1.56× faster; 0 FAIL across full sweep + varlen. PR #685.</td>
+    <td class="win"><b>IMPROVEMENT.</b> S=128 ~1.56× faster; 0 FAIL across full sweep + varlen. PR #685.</td>
   </tr>
   <tr>
-    <td><b>2</b><br><span class="lbl">Exp‑02</span></td>
+    <td><b>Loop 02</b></td>
     <td>Broad <b>in‑body</b> win on the long‑seq DUALWAVE_SWP kernel</td>
     <td>4 in‑body levers: occupancy/VGPR, barrier removal, LDS bank/padding, prefetch‑depth 2→3.</td>
-    <td class="loss"><b>All rejected.</b> Barrier‑removal = correctness FAIL; others neutral/slower. Negative result.</td>
+    <td class="loss"><b>All rejected.</b> Barrier‑removal = correctness FAIL; others neutral/slower. Evidence‑backed NO‑GO.</td>
   </tr>
   <tr>
-    <td><b>3</b><br><span class="lbl">Exp‑03</span></td>
+    <td><b>Loop 03</b></td>
     <td>Broad <b>short/mid</b> win via a specialized variant (DEC‑2 lifted)</td>
     <td>4 levers: BLOCK_M=64 occupancy, env‑knobs (prefetch3/reduce), vmcnt‑only K‑swap, QK‑prefetch‑depth 2→3.</td>
-    <td class="loss"><b>All sub‑threshold.</b> Best (QK‑depth) +0.7–1.4% &lt; 5% bar. Negative result.</td>
+    <td class="loss"><b>All sub‑threshold.</b> Best (QK‑depth) +0.7–1.4% &lt; 5% bar. Evidence‑backed NO‑GO.</td>
   </tr>
 </table>
 
-<h2>2 · Why Session 1 worked</h2>
+<h2>2 · Why Loop 01 worked</h2>
 <p>The win was not a faster kernel — it was a <b>better choice between two kernels that already existed</b>. FlyDSL ships two forward paths on gfx950:</p>
 <ul>
   <li><b>DUALWAVE_SWP</b> — a hand‑scheduled, long‑sequence latency‑hiding pipeline (256‑row tiles, 8 waves, 2‑buffer LDS, software‑pipelined). Excellent on long / GQA / split‑K / varlen.</li>
   <li><b>Generic M128/M256</b> — a simpler tiled kernel. Faster on very short sequences where the long pipeline's fixed prologue/epilogue cost dominates.</li>
 </ul>
-<p>PR683 routed <em>all</em> dense shapes to DUALWAVE_SWP. At <code>S=128</code> that pays a pipeline tax with almost no sequence to amortize it over. Session 1's gate simply sends short dense shapes to the generic kernel instead.</p>
+<p>PR683 routed <em>all</em> dense shapes to DUALWAVE_SWP. At <code>S=128</code> that pays a pipeline tax with almost no sequence to amortize it over. Loop 01's gate simply sends short dense shapes to the generic kernel instead.</p>
 
 <div class="callout">
 <b>Why this is high‑leverage and low‑risk:</b>
@@ -117,26 +117,26 @@
 <li><span class="win">✔</span> <b>Bounded blast radius</b> — only short dense shapes re‑route; protected buckets (long/GQA/varlen) are byte‑identical.</li>
 </ul>
 </div>
-<p class="scalenote">Session 1's own honest caveat: the win was <em>narrow</em> (one shape slice) precisely because the plan's lower bound permitted a "≥1 candidate" stop, and the cheapest satisfying path is a dispatch tweak. That set up the central question for Sessions 2 &amp; 3.</p>
+<p class="scalenote">Loop 01's own honest caveat: the win was <em>narrow</em> (one shape slice) precisely because the plan's lower bound permitted a "≥1 candidate" stop, and the cheapest satisfying path is a dispatch tweak. That set up the central question for Loops 02 and 03.</p>
 
-<h2>3 · Why Sessions 2 &amp; 3 kept failing</h2>
-<p>Both sessions targeted the kernels themselves. The profiling is identical and damning across every shape and provider:</p>
+<h2>3 · Why Loops 02 and 03 kept failing</h2>
+<p>Both loops targeted the kernels themselves. The profiling is identical and damning across every shape and provider:</p>
 
 <div class="callout warn">
 <b>The binding constraint (measured, every provider/tile):</b> 4 waves/CU = <b>25% occupancy</b>, <b>register‑limited</b> (arch_vgpr ~239–256). <b>No bucket is compute/MFMA‑bound</b> (MFMA ≤ 7–8%). The limiters are always memory/latency: <code>s_barrier</code>, <code>vmcnt</code> (global‑load wait), <code>lgkmcnt</code> (LDS wait). And critically — <b>aiter_ck wins the few gap shapes while sitting at the same 25% ceiling</b>, so its edge is a fundamentally different instruction schedule, not more occupancy.
 </div>
 
-<h3>The four levers, and why each died (these recur across both sessions)</h3>
+<h3>The four levers, and why each died (these recur across both loops)</h3>
 <table>
   <tr><th>Lever</th><th>Hypothesis</th><th>Why it failed</th><th>Verdict</th></tr>
   <tr><td><b>Raise occupancy</b> (cut VGPR / smaller tile BLOCK_M=64)</td><td>More resident waves hide the memory/barrier latency</td><td>The 2‑CTA cliff needs ≤64 VGPR/thread; the MFMA output accumulators alone are ~64 VGPR. BLOCK_M=64 did <b>not</b> lower the register ceiling at runtime (239 VGPR, still 25%). Smaller tile just added CTA‑launch + redundant K/V traversal.</td><td class="loss">dead</td></tr>
   <tr><td><b>Remove barriers</b></td><td>The top stall (~22–34%) is <code>s_barrier</code>; drop redundant ones</td><td>They are <b>load‑bearing</b> cross‑wave LDS producer/consumer barriers. Removing 2 of them changed ISA (s_barrier 25→23) but produced <b>wrong results</b> (max_err ~2e‑2).</td><td class="loss">correctness FAIL</td></tr>
   <tr><td><b>LDS bank/padding</b></td><td>The <code>lds</code> stall is bank conflicts</td><td>The stall is DMA‑to‑LDS <b>completion latency</b>, not bank conflict; padding was already engineered. No counter supports the conflict theory.</td><td class="neu">no‑go</td></tr>
-  <tr><td><b>Deeper prefetch</b> (NUM_PREFETCH_K / QK‑depth 2→3)</td><td>Deeper double/triple‑buffer hides more global/LDS latency</td><td>Correct on first try (simulator‑proven schedule), but the kernel is <b>barrier‑bound, not DMA‑bound</b>: OFF/ON ISA showed s_barrier &amp; s_waitcnt <b>unchanged</b>. Session‑2 version regressed; Session‑3 QK version moved the right stall (lgkmcnt 28.5%→non‑dominant) but yielded only <b>~1%</b>.</td><td class="loss">slower / sub‑threshold</td></tr>
+  <tr><td><b>Deeper prefetch</b> (NUM_PREFETCH_K / QK‑depth 2→3)</td><td>Deeper double/triple‑buffer hides more global/LDS latency</td><td>Correct on first try (simulator‑proven schedule), but the kernel is <b>barrier‑bound, not DMA‑bound</b>: OFF/ON ISA showed s_barrier &amp; s_waitcnt <b>unchanged</b>. Loop‑2 version regressed; Loop‑3 QK version moved the right stall (lgkmcnt 28.5%→non‑dominant) but yielded only <b>~1%</b>.</td><td class="loss">slower / sub‑threshold</td></tr>
 </table>
 
-<h3>Session 3's decisive datum: the gap is tiny and structural</h3>
-<p>Session 3 built the full provider × shape matrix (320 runs, all PASS). FlyDSL's best‑routed envelope vs aiter_ck:</p>
+<h3>Loop 03's decisive datum: the gap is tiny and structural</h3>
+<p>Loop 03 built the full provider × shape matrix (320 runs, all PASS). FlyDSL's best‑routed envelope vs aiter_ck:</p>
 <div style="margin:14px 0">
   <div class="barwrap"><div class="barlbl">S=128 (B=1)</div><div class="bar" style="width:46%;background:var(--amber)"></div><span class="scalenote">~93% (gap)</span></div>
   <div class="barwrap"><div class="barlbl">S=192 (B=1)</div><div class="bar" style="width:44%;background:var(--amber)"></div><span class="scalenote">~88% (gap)</span></div>
@@ -147,19 +147,19 @@
 <p>Family geomean: <b>best‑forced 103.7%</b>, <b>current‑auto 101.7%</b> of aiter_ck — i.e. FlyDSL is <em>already faster overall</em>. The entire deficit is <b>3 small‑batch cells: S∈{128,192,256} at batch=1</b>. Even the <em>correct</em> lever (QK‑depth, which hit the diagnosed stall) bought only ~1% there — strong evidence the residual gap is a different <b>algorithm/schedule</b> (aiter's), not anything reachable by a knob or a tile size.</p>
 
 <h2>4 · Why so few rounds before exiting</h2>
-<p>This is the part worth internalizing for the workflow. The sessions didn't quit from impatience — they quit because <b>the search space of cheap/medium levers is small and was exhausted fast</b>, and the loop's control logic then spun.</p>
+<p>This is the part worth internalizing for the workflow. The loops didn't quit from impatience — they quit because <b>the search space of cheap/medium levers is small and was exhausted fast</b>, and the loop's control logic then spun.</p>
 <ul>
-  <li><b>Session 2 (~3 rounds):</b> only a handful of in‑body levers exist on a hand‑tuned kernel, and the constraint (VGPR‑locked 25% occupancy + load‑bearing barriers) kills most of them on contact. Once occupancy (not viable), barriers (correctness), padding (wrong root cause), and prefetch‑depth (barrier‑bound) were each falsified with evidence, there was simply nothing cheap left to try. The honest result arrived quickly.</li>
-  <li><b>Session 3 (9 rounds, exited via stagnation circuit‑breaker):</b> the <em>technical</em> result was equally fast — ~4 rounds produced the baseline, diagnosis, and all four falsified levers. <b>Rounds 5–9 produced no new technical findings</b>; they were consumed by evidence‑completeness, provenance exactness, and a governance deadlock (below).</li>
+  <li><b>Loop 02 (~3 rounds):</b> only a handful of in‑body levers exist on a hand‑tuned kernel, and the constraint (VGPR‑locked 25% occupancy + load‑bearing barriers) kills most of them on contact. Once occupancy (not viable), barriers (correctness), padding (wrong root cause), and prefetch‑depth (barrier‑bound) were each falsified with evidence, there was simply nothing cheap left to try. The honest result arrived quickly.</li>
+  <li><b>Loop 03 (9 rounds, exited via stagnation circuit‑breaker):</b> the <em>technical</em> result was equally fast — ~4 rounds produced the baseline, diagnosis, and all four falsified levers. <b>Rounds 5–9 produced no new technical findings</b>; they were consumed by evidence‑completeness, provenance exactness, and a governance deadlock (below).</li>
 </ul>
 
 <div class="callout key">
-<b>The governance deadlock (the real reason Session 3 dragged then timed out).</b> The plan permitted an evidence‑backed <em>negative result</em> as its minimum‑acceptable outcome — but the RLCR loop's COMPLETE rule required <b>every</b> acceptance criterion met. The must‑win speedup criterion was unreachable, so the loop could never emit a clean "done." It kept demanding "more evidence" for a conclusion that was already firm, a human had to step in to accept the negative result, and even then the loop ran on until a <b>stagnation circuit‑breaker</b> finally tripped at round 9. The deepest lesson is not about GPUs at all: <b>the methodology lacked a terminating "accepted negative‑result" verdict.</b> (Filed upstream as a methodology improvement.)
+<b>The governance deadlock (the real reason Loop 03 dragged then timed out).</b> The plan permitted an evidence‑backed <em>NO‑GO</em> as its minimum‑acceptable outcome — but the RLCR loop's COMPLETE rule required <b>every</b> acceptance criterion met. The must‑win speedup criterion was unreachable, so the loop could never emit a clean "done." It kept demanding "more evidence" for a conclusion that was already firm, a human had to step in to accept the NO‑GO, and even then the loop ran on until a <b>stagnation circuit‑breaker</b> finally tripped at round 9. The deepest lesson is not about GPUs at all: <b>the methodology lacked a terminating "accepted NO‑GO" verdict.</b> (Filed upstream as a methodology improvement.)
 </div>
 
 <h2>5 · The pattern: a leverage cliff</h2>
 <table>
-  <tr><th></th><th>Session 1 (worked)</th><th>Sessions 2 &amp; 3 (didn't)</th></tr>
+  <tr><th></th><th>Loop 01 (worked)</th><th>Loops 02 and 03 (didn't)</th></tr>
   <tr><td><b>What changed</b></td><td>Which kernel runs (routing)</td><td>How the kernel runs (schedule/occupancy)</td></tr>
   <tr><td><b>Pre‑existing slack</b></td><td>Large — a real routing mistake</td><td>~None — kernels at a hardware co‑optimum</td></tr>
   <tr><td><b>Risk / blast radius</b></td><td>Tiny (no new numerics)</td><td>High (silent‑correctness LDS hazards)</td></tr>
@@ -168,16 +168,16 @@
   <tr><td><b>Effort to win</b></td><td>1 file, days</td><td>A from‑scratch vendor‑matching kernel — disproportionate for one non‑bottleneck corner</td></tr>
 </table>
 
-<p>Put plainly: <b>Session 1 picked the low‑hanging fruit; Sessions 2 &amp; 3 found the tree was already harvested.</b> That is itself a valuable result — the pilot produced an evidence map showing FlyDSL's gfx950 forward attention is at or beyond the vendor library across the vast majority of the shape space, with the remaining gap being structural and confined to small‑batch mid‑sequence shapes.</p>
+<p>Put plainly: <b>Loop 01 picked the low‑hanging fruit; Loops 02 and 03 found the tree was already harvested.</b> That is itself a valuable result — the pilot produced an evidence map showing FlyDSL's gfx950 forward attention is at or beyond the vendor library across the vast majority of the shape space, with the remaining gap being structural and confined to small‑batch mid‑sequence shapes.</p>
 
 <h2>6 · What's actually left on the table</h2>
 <ul>
-  <li><b>A dispatch‑only follow‑up (real, landable):</b> the Session‑3 matrix found current‑auto routing is sub‑optimal in <b>24/80 cells</b> (up to ~22%, mostly B=8 GQA, where it routes to generic but DUALWAVE_SWP is faster). This is Session 1's winning pattern again — fix the routing, not the kernel. (Excluded from Sessions 2/3 only because their must‑win bar forbade dispatch‑only wins.)</li>
+  <li><b>A dispatch‑only follow‑up (real, landable):</b> the Loop 03 matrix found current‑auto routing is sub‑optimal in <b>24/80 cells</b> (up to ~22%, mostly B=8 GQA, where it routes to generic but DUALWAVE_SWP is faster). This is Loop 01's winning pattern again — fix the routing, not the kernel. (Excluded from Loops 02/03 only because their must‑win bar forbade dispatch‑only wins.)</li>
   <li><b>A from‑scratch short/mid kernel</b> matching aiter's small‑batch schedule — the only path to the structural S=128/192/256 B=1 gap. High effort, narrow payoff; warrants its own plan if the regime ever becomes a production bottleneck.</li>
 </ul>
 
 <div class="foot">
-ROCm KDA Pilot · Humanize/RLCR retrospective · MI350X (gfx950). Sources: <code>results/experiment-01/02/03-flashattn-gfx950*.md</code> in this repo. All numbers measured on MI350X; MI355X is an unmeasured planned follow‑up. Sessions 2 &amp; 3 are evidence‑backed negative results accepted by both the user and the reviewer. Generated as a cross‑session summary.
+ROCm KDA Pilot · Humanize/RLCR retrospective · MI350X (gfx950). Sources: <code>results/loop-*-flashattn-gfx950*.md</code> in this repo. All numbers measured on MI350X; MI355X is an unmeasured planned follow‑up. Loops 02 and 03 are evidence‑backed NO‑GO outcomes accepted by both the user and the reviewer. Generated as a cross‑loop summary.
 </div>
 
 </div>
