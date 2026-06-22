@@ -343,7 +343,11 @@ Record the outcome (`IMPROVEMENT`, `NO-GO`, or `BLOCKED`) under
 FlashAttention forward on gfx950 is now an example/result set, not the whole
 identity of this repo.
 
-The original example was grounded in:
+There are now **two example families**: Loops 01–03 *optimized* the existing
+bf16/f16 FlashAttention; Loop 04 *adds a new dtype* (fp8 e4m3fn) from scratch and
+chases aiter-asm-fp8 throughput parity.
+
+The bf16 example was grounded in:
 
 - [`ROCm/FlyDSL#683`](https://github.com/ROCm/FlyDSL/pull/683): the working
   FlashAttention baseline and canonical test/benchmark harness.
@@ -352,6 +356,13 @@ The original example was grounded in:
 - [`jhinpan/FlyDSL-lab`](https://github.com/jhinpan/FlyDSL-lab): the working fork
   where optimization branches were pushed.
 
+The fp8 example (Loop 04) is grounded in the same harness plus:
+
+- [`ROCm/FlyDSL#698`](https://github.com/ROCm/FlyDSL/issues/698): the *[Feature]
+  fp8 flash attention* issue used as the draft.
+- aiter **native ASM fp8** (`fmha_v3_fwd`, `how_v3_bf16_cvt=0`) as the parity
+  target, with aiter ck fp8 as a secondary comparison.
+
 Completed loops:
 
 | Loop | Result | Takeaway |
@@ -359,12 +370,15 @@ Completed loops:
 | [`01`](results/loop-01-flashattn-gfx950.md) | `IMPROVEMENT`: promoted dispatch win, about `1.56x` mean speedup for dense `S=128`; correctness and coverage preserved; upstream draft PR [`ROCm/FlyDSL#685`](https://github.com/ROCm/FlyDSL/pull/685). | The first draft rewarded "at least one promoted candidate", so the loop found the cheapest safe win: dispatch routing. |
 | [`02`](results/loop-02-flashattn-gfx950-deep.md) | `NO-GO`: no in-body optimization of the long dualwave kernel was landable. | The kernel body is at a barrier/occupancy co-optimum; credible in-body levers were load-bearing, neutral, or slower. |
 | [`03`](results/loop-03-flashattn-gfx950-variant.md) | `NO-GO`: no short/mid specialized variant cleared the bar; best lever was about `1%`, below the promotion bar. | After the dispatch gate, FlyDSL is already competitive across most of the family; the remaining small-batch mid-sequence gap is structural. |
+| [`04`](results/loop-04-flashattn-fp8-gfx950.md) | `IMPROVEMENT` (correct, additive, merge-ready **fp8 e4m3fn forward**, `min_cos ≈ 0.99999`); **AC-8 asm-fp8 throughput parity OPEN at ~66%**. Issue [`ROCm/FlyDSL#698`](https://github.com/ROCm/FlyDSL/issues/698). | A new dtype, not a tuning pass. Correctness is solved and a false "precision-wall" `NO-GO` was retracted via host numerics; parity is gated by a tractable true-fp8 V-staging layout, and profiling shows the gap is barrier/bandwidth-bound (MFMA only ~8%), not arithmetic. |
 
 For a browser-friendly retrospective, open
 [`results/loops-summary.html`](results/loops-summary.html).
 
 The important process lesson is that `NO-GO` is a valid deliverable when it is
-backed by correctness, benchmark, profiling, and ISA evidence.
+backed by correctness, benchmark, profiling, and ISA evidence — and, from Loop 04,
+that a `NO-GO` claiming a *fundamental* limit must itself be verified (the
+"precision wall" was retracted by a cheap idealized-numerics probe).
 
 ## Benchmark And Profiling Contracts
 
