@@ -394,6 +394,7 @@ Keep the runtime contract short and explicit:
 
 References:
 
+- [`docs/model_policy.md`](docs/model_policy.md) — default model routes (Claude Code = Opus 4.8 / ultracode, Codex = `gpt-5.5:xhigh`), no small-model defaults, and report auditability (issue #5 slice).
 - [`docs/benchmark_contract.md`](docs/benchmark_contract.md)
 - [`docs/profiling_contract.md`](docs/profiling_contract.md)
 - [`docs/flydsl_flashattn_rules.md`](docs/flydsl_flashattn_rules.md)
