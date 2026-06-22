@@ -17,7 +17,7 @@ to push it to aiter-asm-fp8 throughput parity.
 | Loop | Humanize RLCR, `--max 12`, `--codex-model gpt-5.5:xhigh` |
 | Rounds used | 12 of 12 (ran to max-iterations); ~66 candidates (C0–C66) |
 | Outcome | **IMPROVEMENT — correct, additive, merge-ready fp8 forward**; **AC-8 (asm-fp8 throughput parity) OPEN at ~66%** |
-| Commit | squashed to `888ae17f` (1 feat commit); design notes in `docs/fp8_flash_attn_design.md` |
+| Commit | squashed to `888ae17f` (1 feat commit); FlyDSL design notes in `docs/fp8_flash_attn_design.md` |
 
 ## What landed
 
@@ -50,10 +50,10 @@ Correctness vs a **dequantized-input** PyTorch SDPA reference, fixed fp8 gate
 
 | sweep | result |
 |---|---|
-| fp8 default (high-precision-P), full DEFAULT_CONFIGS, causal+nocausal, MHA+GQA (Hkv∈{8,16,32,64}), S≤8192 | **ALL PASS**, `min_cos ≈ 0.99999`, `max_err ≤ 4.3e-3`, 0 NaN |
+| fp8 default (high-precision-P), full DEFAULT_CONFIGS, causal + non-causal, MHA+GQA (Hkv∈{8,16,32,64}), S≤8192 | **ALL PASS**, `min_cos ≈ 0.99999`, `max_err ≤ 4.3e-3`, 0 NaN |
 | fp8 FROMBF16 (packed-fp8-P) | ALL PASS, `min_cos ≈ 0.9986` |
 | bf16 / fp16 non-regression | unchanged, `min_cos ≈ 0.99999 / 1.00000`; bf16 ≈703 TF (≥0.98× baseline) |
-| full repo gate `RUN_TESTS_FULL=1 scripts/run_tests.sh` (private build) | pytest + examples + MLIR FileCheck all green |
+| full repo gate `RUN_TESTS_FULL=1 scripts/run_tests.sh` on a transient private-build validation branch | pytest + examples + MLIR FileCheck all green there; do not treat this as evidence for FlyDSL PR #711 head `888ae17f` alone |
 
 Throughput (B=1, S=2048, H=64, D=128, non-causal, warmup 10 / iters 50):
 
@@ -78,7 +78,7 @@ worktree's untracked `.humanize` notes. Grouped:
 | high-precision-P PV (default) (→C58) | **PROMOTED** | the shipping correct path |
 | "fp8-P precision wall" NO-GO (C56–C57) | **retracted** | see Lessons #1 |
 | packed-fp8-P FROMBF16 (C64–C65) | landed (correctness) | reuse proven layout by construction; on-device `fp8×fp8` PV passes the gate |
-| AC-10 merge gate (C59–C63) | landed | fixed a real fp8 legalization regression + a `conftest`/shared-build issue; full suite green on a private build |
+| AC-10 merge-gate rehearsal (C59–C63) | mixed: kernel fix landed, private-build harness fix stayed local | fixed a real fp8 legalization regression in `888ae17f`; the `conftest`/shared-build pytest fix was only on a transient validation branch, so full-suite-green evidence does not apply to PR #711 head alone |
 | asm-fp8 throughput parity (AC-8) (C66) | **OPEN** | 66%; true-fp8 no-roundtrip V path is the remaining lever |
 
 ## Per-path bottleneck profile (rocprofv3 ATT, MI350X)
@@ -154,8 +154,10 @@ i.e. the natural content of a first PR if DEC-4 is later split into two steps.
    current source. A private `FLY_BUILD_DIR` build then surfaced a **real** fp8
    legalization regression (fp8-typed source memref rejected by `BufferCopyLDS128b`;
    fixed by building fp8 Q/K/V buffer views as `i8`). Stale shared bindings had
-   hidden a genuine mergeability bug. A repo-local `conftest.py` fix (honor
-   `FLY_BUILD_DIR`) was also required so pytest used the private build.
+   hidden a genuine mergeability bug. The kernel fix is in `888ae17f`; the
+   repo-local `conftest.py` fix that made pytest honor `FLY_BUILD_DIR` stayed on a
+   transient validation branch, so the full-suite-green private-build run is not
+   current-head evidence for FlyDSL PR #711 by itself.
 7. **`NO-GO`/`OPEN` on a hard gate is a valid, honest deliverable.** The loop
    correctly refused to mark a failing accuracy gate as "complete." (It also exposed
    a workflow-friction: the Stop-hook's "incomplete tasks" block looped against this
@@ -167,7 +169,7 @@ i.e. the natural content of a first PR if DEC-4 is later split into two steps.
 - 12/12 rounds (ran to max-iterations); the depth was real (V-layout decode, the
   precision-wall retraction, two PV modes, the private-build AC-10 gate), not churn.
 - Recoverable losses worth noting:
-  - One **false NO-GO** (precision wall) cost rounds before being retracted by a
+  - One **false NO-GO** (precision wall) cost several rounds before being retracted by a
     ~30-line host probe — Lesson #1 is the cheap preventative.
   - The **shared `build-fly` symlink** caused an apparent AC-10 block and a real
     hidden regression — Lesson #6; the prepare script should provision a private

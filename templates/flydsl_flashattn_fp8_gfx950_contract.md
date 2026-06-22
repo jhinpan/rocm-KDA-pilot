@@ -194,7 +194,8 @@ flyprof run flash_attn_fwd --worktree "$PWD" --gpu "$GPU" --bundle "profile/flyd
 
 The first fp8 loop landed a correct, additive, merge-ready forward but ran to its
 iteration budget without reaching aiter-asm-fp8 parity. Bake these in next time
-(see `results/loop-04-flashattn-fp8-gfx950.md` and the generic guardrails in
+(see `results/loop-04-flashattn-fp8-gfx950.md`; after PR #7 or an equivalent
+mainline update lands, also apply the generic guardrails in
 `docs/humanize_flow.md`):
 
 - **Split the parity gate from the correctness gate explicitly.** The plan made
