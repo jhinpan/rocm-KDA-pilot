@@ -190,6 +190,35 @@ flyprof run flash_attn_fwd --worktree "$PWD" --gpu "$GPU" --bundle "profile/flyd
   `docs/optimization-ledger.md`.
 - Do not claim a win from a single noisy near-threshold run.
 
+## Lessons from the first fp8 loop (Loop 04)
+
+The first fp8 loop landed a correct, additive, merge-ready forward but ran to its
+iteration budget without reaching aiter-asm-fp8 parity. Bake these in next time
+(see `results/loop-04-flashattn-fp8-gfx950.md` and the generic guardrails in
+`docs/humanize_flow.md`):
+
+- **Split the parity gate from the correctness gate explicitly.** The plan made
+  asm-fp8 throughput parity a hard merge blocker (single-PR). Correctness landed
+  early; parity did not, and the loop spent its remaining budget circling parity.
+  State up front whether a correct-but-slower fp8 forward is independently
+  mergeable, and put parity behind a binding-constraint escalation gate so the
+  loop pauses for a human decision instead of exhausting rounds.
+- **Capture a baseline ATT trace in round 0**, not at the end. For this kernel the
+  trace shows it is stall-bound (cross-wave barrier + global-load waits dominate;
+  MFMA issue is a small fraction). fp8 and bf16 `32x32x16` MMA have equal CDNA4
+  throughput, so a packed-fp8 path that adds dequant/conversion is *slower* than a
+  bf16-compute path — the win must come from removing round-trips/bandwidth, which
+  only the trace makes obvious.
+- **Falsify a precision NO-GO with host numerics before accepting it.** A
+  "fundamental fp8-P precision wall" NO-GO was accepted, then overturned by a cheap
+  host-side `fp8xfp8` PV numerics probe showing the real blocker was a layout
+  defect. Run that probe first.
+- **The packed-fp8 PV blocker is layout, not precision.** `ds_read_b64_tr_b8`
+  permutes 8-bit lanes differently from the bf16 transpose+shuffle; match the fp8
+  B-operand element order to the proven bf16 layout (use an operand-dump oracle),
+  and keep a bf16-reuse correctness mode as the oracle while building the true-fp8
+  no-round-trip path.
+
 ## Expected Plan Shape
 
 The generated plan should include:

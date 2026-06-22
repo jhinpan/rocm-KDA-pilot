@@ -44,6 +44,12 @@ For FlyDSL **fp8** FlashAttention (ROCm/FlyDSL#698):
 - fp8 is additive: the existing bf16/fp16 paths must not regress.
 - fp8 correctness gate is looser than bf16 (`max_err < 5e-2`, `min_cos > 0.98`)
   but fixed in the plan -- never relax it mid-loop to force a pass.
+- Before starting, read the first-fp8-loop lessons in
+  `templates/flydsl_flashattn_fp8_gfx950_contract.md` ("Lessons from the first fp8
+  loop") and `results/loop-04-flashattn-fp8-gfx950.md`: split the parity gate from
+  the correctness gate, capture a round-0 ATT trace (the kernel is stall-bound, not
+  compute-bound), falsify any precision NO-GO with a host `fp8xfp8` numerics probe
+  first, and treat the packed-fp8 PV blocker as a transpose-load layout problem.
 
 The loop should produce correctness evidence, benchmark evidence, candidate
 lineage, failed-attempt notes, and exact reproduction commands.
