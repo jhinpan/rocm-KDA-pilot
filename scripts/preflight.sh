@@ -115,16 +115,22 @@ ok "wrote $RUNENV"
 # honors it. This check surfaces the trap at round 0 instead of at finalization.
 echo "-- build-fly sharing / staleness --"
 BUILD_FLY="$FLYDSL_ROOT/build-fly"
+shared_build_fly=0
 if [[ -L "$BUILD_FLY" ]]; then
   TARGET="$(readlink -f "$BUILD_FLY" 2>/dev/null || true)"
   # Count how many of this repo's worktrees resolve build-fly to the same target.
   shared_n=0
-  while IFS= read -r wt; do
-    [[ -z "$wt" ]] && continue
-    wt_target="$(readlink -f "$wt/build-fly" 2>/dev/null || true)"
-    [[ -n "$wt_target" && "$wt_target" == "$TARGET" ]] && shared_n=$((shared_n+1))
-  done < <(git -C "$FLYDSL_ROOT" worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2}')
+  if worktree_list="$(git -C "$FLYDSL_ROOT" worktree list --porcelain 2>/dev/null)"; then
+    while IFS= read -r wt; do
+      [[ -z "$wt" ]] && continue
+      wt_target="$(readlink -f "$wt/build-fly" 2>/dev/null || true)"
+      [[ -n "$wt_target" && "$wt_target" == "$TARGET" ]] && shared_n=$((shared_n+1))
+    done < <(printf '%s\n' "$worktree_list" | sed -n 's/^worktree //p')
+  else
+    bad "could not inspect git worktrees; cannot prove build-fly symlink is private."
+  fi
   if [[ "$shared_n" -ge 2 ]]; then
+    shared_build_fly=1
     warn "build-fly is a SHARED symlink -> $TARGET (used by $shared_n worktrees)."
     warn "If it lags this worktree's source, pytest will fail repo-wide with API-drift"
     warn "ImportErrors in untouched modules. Build a PRIVATE tree and export it:"
@@ -138,13 +144,25 @@ else
 fi
 # conftest must honor FLY_BUILD_DIR, else pytest silently reverts to the shared build.
 CONFTEST="$FLYDSL_ROOT/tests/conftest.py"
+conftest_honors_fly_build_dir=0
 if [[ -f "$CONFTEST" ]]; then
   if grep -q "FLY_BUILD_DIR" "$CONFTEST" 2>/dev/null; then
+    conftest_honors_fly_build_dir=1
     ok "tests/conftest.py honors FLY_BUILD_DIR (private build is testable under pytest)."
   else
     warn "tests/conftest.py does NOT reference FLY_BUILD_DIR: pytest may pin the default"
     warn "build-fly on sys.path[0] and ignore a private build. Verify before relying on a"
     warn "private build for the pytest gate (direct 'python3' honors PYTHONPATH; pytest may not)."
+  fi
+else
+  warn "tests/conftest.py is missing; cannot prove pytest honors FLY_BUILD_DIR."
+fi
+if [[ "$shared_build_fly" -eq 1 ]]; then
+  if [[ -z "${FLY_BUILD_DIR:-}" ]]; then
+    bad "shared build-fly detected and FLY_BUILD_DIR is not set; use a private build before starting RLCR."
+  fi
+  if [[ "$conftest_honors_fly_build_dir" -ne 1 ]]; then
+    bad "shared build-fly detected but pytest cannot be proven to honor FLY_BUILD_DIR."
   fi
 fi
 
