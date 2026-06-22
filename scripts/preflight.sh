@@ -105,7 +105,69 @@ fi
 } > "$RUNENV"
 ok "wrote $RUNENV"
 
-# --- 4. GPU present -------------------------------------------------------------
+# --- 4. Shared/stale build-fly detection (loop fa-fp8 lesson) -------------------
+# Motivated by the fp8 FlashAttention loop, where ~5 rounds were lost to a single
+# environment trap: this worktree's build-fly was a TOP-LEVEL SYMLINK to one
+# shared build dir reused by ~10 sibling worktrees. When that shared build lagged
+# the current source, pytest failed repo-wide with API-drift ImportErrors in
+# modules the branch never touched -- easy to misattribute to your own diff. The
+# fix is a PRIVATE self-consistent build (FLY_BUILD_DIR=...) plus a conftest that
+# honors it. This check surfaces the trap at round 0 instead of at finalization.
+echo "-- build-fly sharing / staleness --"
+BUILD_FLY="$FLYDSL_ROOT/build-fly"
+if [[ -L "$BUILD_FLY" ]]; then
+  TARGET="$(readlink -f "$BUILD_FLY" 2>/dev/null || true)"
+  # Count how many of this repo's worktrees resolve build-fly to the same target.
+  shared_n=0
+  while IFS= read -r wt; do
+    [[ -z "$wt" ]] && continue
+    wt_target="$(readlink -f "$wt/build-fly" 2>/dev/null || true)"
+    [[ -n "$wt_target" && "$wt_target" == "$TARGET" ]] && shared_n=$((shared_n+1))
+  done < <(git -C "$FLYDSL_ROOT" worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2}')
+  if [[ "$shared_n" -ge 2 ]]; then
+    warn "build-fly is a SHARED symlink -> $TARGET (used by $shared_n worktrees)."
+    warn "If it lags this worktree's source, pytest will fail repo-wide with API-drift"
+    warn "ImportErrors in untouched modules. Build a PRIVATE tree and export it:"
+    warn "    FLY_BUILD_DIR=/tmp/flydsl-\$(basename \$PWD)-build bash scripts/build.sh -j\$(nproc)"
+    warn "    export FLY_BUILD_DIR=/tmp/flydsl-\$(basename \$PWD)-build   # used by run_tests.sh + conftest"
+  else
+    ok "build-fly is a symlink but not shared across worktrees."
+  fi
+else
+  ok "build-fly is not a shared symlink."
+fi
+# conftest must honor FLY_BUILD_DIR, else pytest silently reverts to the shared build.
+CONFTEST="$FLYDSL_ROOT/tests/conftest.py"
+if [[ -f "$CONFTEST" ]]; then
+  if grep -q "FLY_BUILD_DIR" "$CONFTEST" 2>/dev/null; then
+    ok "tests/conftest.py honors FLY_BUILD_DIR (private build is testable under pytest)."
+  else
+    warn "tests/conftest.py does NOT reference FLY_BUILD_DIR: pytest may pin the default"
+    warn "build-fly on sys.path[0] and ignore a private build. Verify before relying on a"
+    warn "private build for the pytest gate (direct 'python3' honors PYTHONPATH; pytest may not)."
+  fi
+fi
+
+# --- 5. Acceptance-gate executability smoke (loop fa-fp8 lesson) ----------------
+# The merge gate (RUN_TESTS_FULL=1 run_tests.sh: pytest + examples + MLIR FileCheck)
+# could not even RUN for several rounds because of environment/dep drift discovered
+# only at finalization. Treat "the gate is not executable here" as a round-0 blocker.
+echo "-- acceptance-gate executability --"
+if [[ -f "$FLYDSL_ROOT/scripts/run_tests.sh" ]]; then
+  ok "scripts/run_tests.sh present."
+  if grep -q "multi_gpu" "$FLYDSL_ROOT/scripts/run_tests.sh" 2>/dev/null; then
+    ok "run_tests.sh references multi_gpu marker (CI split handled)."
+  else
+    warn "run_tests.sh has no multi_gpu handling: an 8-GPU test (e.g. allreduce) may"
+    warn "fail-fast the whole gate on a single-node box. Confirm the documented CI split."
+  fi
+  warn "Run the full gate ONCE before feature work to confirm it executes end-to-end:"
+  warn "    FLY_BUILD_DIR=<private> RUN_TESTS_FULL=1 bash scripts/run_tests.sh   # round-0 smoke"
+else
+  warn "scripts/run_tests.sh not found; cannot pre-verify the merge gate."
+fi
+
+# --- 6. GPU present -------------------------------------------------------------
 echo "-- GPU --"
 if command -v rocm-smi >/dev/null 2>&1 && rocm-smi --showid >/dev/null 2>&1; then
   ok "rocm-smi reports a GPU."

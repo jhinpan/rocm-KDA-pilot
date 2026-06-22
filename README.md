@@ -383,7 +383,8 @@ References:
 - [`docs/benchmark_contract.md`](docs/benchmark_contract.md)
 - [`docs/profiling_contract.md`](docs/profiling_contract.md)
 - [`docs/flydsl_flashattn_rules.md`](docs/flydsl_flashattn_rules.md)
-- [`docs/humanize_flow.md`](docs/humanize_flow.md)
+- [`docs/humanize_flow.md`](docs/humanize_flow.md) (includes the convergence guardrails)
+- [`docs/result_report_template.md`](docs/result_report_template.md)
 
 ## Terminology
 
