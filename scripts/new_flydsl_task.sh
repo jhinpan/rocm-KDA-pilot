@@ -22,7 +22,7 @@
 #                        branch = rlcr/<slug> (override with --branch).
 #
 # Options:
-#   --template <kind>    draft template: default | deep | fp8  (default: default)
+#   --template <kind>    draft template: default | deep | fp8 | mxfp4  (default: default)
 #   --base <ref>         Locked base ref to branch from. Default: upstream/main.
 #                        Use the exact baseline you will review against (e.g. a
 #                        PR683 baseline branch). Do not guess it for the loop.
@@ -68,8 +68,8 @@ if [[ -z "$SLUG" ]]; then
   exit 2
 fi
 case "$TEMPLATE_KIND" in
-  default|deep|fp8) ;;
-  *) echo "error: --template must be one of: default deep fp8" >&2; exit 2 ;;
+  default|deep|fp8|mxfp4) ;;
+  *) echo "error: --template must be one of: default deep fp8 mxfp4" >&2; exit 2 ;;
 esac
 
 [[ -n "$BRANCH" ]] || BRANCH="rlcr/$SLUG"
@@ -117,8 +117,9 @@ fi
 # --- write the draft -----------------------------------------------------------
 PREP_ARGS=()
 case "$TEMPLATE_KIND" in
-  deep) PREP_ARGS+=(--deep) ;;
-  fp8)  PREP_ARGS+=(--fp8) ;;
+  deep)   PREP_ARGS+=(--deep) ;;
+  fp8)    PREP_ARGS+=(--fp8) ;;
+  mxfp4)  PREP_ARGS+=(--mxfp4) ;;
 esac
 bash "$ROOT/scripts/prepare_flydsl_flashattn_task.sh" "${PREP_ARGS[@]}" "$WORKTREE"
 

@@ -72,12 +72,12 @@ For new tasks, start from the issue template:
 
 | Path | Purpose |
 |---|---|
-| [`templates/`](templates/) | Draft templates for known task families: the default and `--deep` FlashAttention contracts, and the [`fp8`](templates/flydsl_flashattn_fp8_gfx950_contract.md) contract for [`ROCm/FlyDSL#698`](https://github.com/ROCm/FlyDSL/issues/698). |
+| [`templates/`](templates/) | Draft templates for known task families: the default and `--deep` FlashAttention contracts, the [`fp8`](templates/flydsl_flashattn_fp8_gfx950_contract.md) contract for [`ROCm/FlyDSL#698`](https://github.com/ROCm/FlyDSL/issues/698), and the [`mxfp4`](templates/flydsl_mxfp4_moe_gfx950_contract.md) MXFP4 MoE 2-stage tuning contract for [`ROCm/FlyDSL#708`](https://github.com/ROCm/FlyDSL/issues/708). |
 | [`skills/rocm-kda-pilot/`](skills/rocm-kda-pilot/) | Project skill for running the loop (execution side). |
 | [`skills/flydsl-task-setup/`](skills/flydsl-task-setup/) | Project skill for the prep phase: issue -> worktree -> draft -> plan, stopping at the human plan-review gate. |
 | [`scripts/new_flydsl_task.sh`](scripts/new_flydsl_task.sh) | One command: provisions `/sgl-workspace/FlyDSL-<slug>` on `rlcr/<slug>`, writes the draft, wires bindings, runs preflight. |
 | [`scripts/bootstrap.sh`](scripts/bootstrap.sh) | Links skills and installs local helper tooling. |
-| [`scripts/prepare_flydsl_flashattn_task.sh`](scripts/prepare_flydsl_flashattn_task.sh) | Creates a FlashAttention draft (`--deep` / `--fp8`) in a FlyDSL worktree. |
+| [`scripts/prepare_flydsl_flashattn_task.sh`](scripts/prepare_flydsl_flashattn_task.sh) | Creates a draft (`--deep` / `--fp8` / `--mxfp4`) in a FlyDSL worktree. |
 | [`scripts/preflight.sh`](scripts/preflight.sh) | Checks Codex model naming and FlyDSL runtime bindings before RLCR. |
 | [`docs/`](docs/) | Short contracts for Humanize flow, benchmark rules, profiling rules, FlashAttention invariants, and terminology. |
 | [`results/`](results/) | Completed loop result reports. |

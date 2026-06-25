@@ -30,11 +30,12 @@ Keep `FlyDSL-lab` main clean. Never run a loop on `main` or on the shared
    - `default` -> bf16/fp16 first-pass FlashAttention contract
    - `deep` -> deeper kernel-body contract (Loop-02 style)
    - `fp8` -> fp8 FlashAttention contract (ROCm/FlyDSL#698)
+   - `mxfp4` -> MXFP4 MoE 2-stage tuning contract (ROCm/FlyDSL#708)
 2. Provision the worktree + branch + draft + bindings in one command:
 
    ```bash
    cd /sgl-workspace/rocm-KDA-pilot
-   bash scripts/new_flydsl_task.sh --slug <slug> --template <default|deep|fp8> \
+   bash scripts/new_flydsl_task.sh --slug <slug> --template <default|deep|fp8|mxfp4> \
      --base <locked-base-ref> [--build-from /path/to/built-FlyDSL]
    ```
 

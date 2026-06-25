@@ -4,7 +4,7 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  scripts/prepare_flydsl_flashattn_task.sh [--deep | --fp8] /path/to/FlyDSL-worktree
+  scripts/prepare_flydsl_flashattn_task.sh [--deep | --fp8 | --mxfp4] /path/to/FlyDSL-worktree
 
 Writes:
   .humanize/kernel-agent/draft.md
@@ -20,8 +20,14 @@ Options:
            ROCm/FlyDSL#698 task: add an fp8 (e4m3fn) FlashAttention forward path
            on gfx950 and optimize it toward the aiter asm fp8 level (~2000+T),
            without regressing the existing bf16/fp16 paths.
+  --mxfp4  Use the MXFP4 MoE 2-stage contract template
+           (templates/flydsl_mxfp4_moe_gfx950_contract.md). This frames the
+           ROCm/FlyDSL#708 task: tune the MXFP4 (per-1x32 fp4) MoE stage1/stage2
+           GEMM on gfx950 to raise MFU at large shapes and cut latency at small
+           tokens across DeepSeek/Kimi/GPT-OSS, without breaking AITER layout
+           compatibility or correctness. Harness: aiter op_tests/test_moe_2stage.py.
 
---deep and --fp8 are mutually exclusive.
+--deep, --fp8, and --mxfp4 are mutually exclusive.
 
 The FlyDSL worktree should usually be a jhinpan/FlyDSL-lab fork checkout on a
 branch created from upstream ROCm/FlyDSL (which now contains PR683).
@@ -30,12 +36,14 @@ EOF
 
 DEEP=0
 FP8=0
+MXFP4=0
 ARGS=()
 for a in "$@"; do
   case "$a" in
     -h|--help) usage; exit 0 ;;
     --deep) DEEP=1 ;;
     --fp8) FP8=1 ;;
+    --mxfp4) MXFP4=1 ;;
     *) ARGS+=("$a") ;;
   esac
 done
@@ -46,8 +54,8 @@ if [[ $# -ne 1 ]]; then
   exit 2
 fi
 
-if [[ $DEEP -eq 1 && $FP8 -eq 1 ]]; then
-  echo "--deep and --fp8 are mutually exclusive" >&2
+if [[ $((DEEP + FP8 + MXFP4)) -gt 1 ]]; then
+  echo "--deep, --fp8, and --mxfp4 are mutually exclusive" >&2
   exit 2
 fi
 
@@ -57,6 +65,8 @@ if [[ $DEEP -eq 1 ]]; then
   TEMPLATE="$ROOT/templates/flydsl_flashattn_gfx950_deep_contract.md"
 elif [[ $FP8 -eq 1 ]]; then
   TEMPLATE="$ROOT/templates/flydsl_flashattn_fp8_gfx950_contract.md"
+elif [[ $MXFP4 -eq 1 ]]; then
+  TEMPLATE="$ROOT/templates/flydsl_mxfp4_moe_gfx950_contract.md"
 else
   TEMPLATE="$ROOT/templates/flydsl_flashattn_gfx950_contract.md"
 fi
