@@ -193,5 +193,33 @@ else
   warn "rocm-smi not available or no GPU; device-tier tests will not run."
 fi
 
+# --- 7. Profiling skill chain available + MANDATORY (loop mxfp4-moe lesson) ------
+# Motivated by the MXFP4 MoE loop: a 28-round loop never once invoked the verified
+# profiling skills (flyprof-*, rocm-report-skill, ROCmKernelWiki). It hand-rolled a
+# rocprofv3 collection script that the reviewer repeatedly faulted, and every later
+# bottleneck conclusion leaned on that single stale hand capture. Surface the
+# verified chain at round 0 so the loop uses it instead of reinventing it.
+echo "-- profiling skill chain --"
+CLAUDE_SKILLS_DIR="${CLAUDE_SKILLS_DIR:-$HOME/.claude/skills}"
+_missing_skills=()
+for s in rocm-kda-pilot flyprof-capture flyprof-analyze flyprof-triage flyprof-usage rocm-report-skill ROCmKernelWiki; do
+  if [[ -f "$CLAUDE_SKILLS_DIR/$s/SKILL.md" ]]; then
+    ok "skill present: $s"
+  else
+    _missing_skills+=("$s")
+  fi
+done
+if [[ ${#_missing_skills[@]} -gt 0 ]]; then
+  bad "missing profiling skills: ${_missing_skills[*]}"
+  bad "run scripts/bootstrap.sh to link them into $CLAUDE_SKILLS_DIR (and install flyprof)."
+fi
+if command -v flyprof >/dev/null 2>&1; then
+  ok "flyprof CLI on PATH."
+else
+  bad "flyprof CLI not on PATH; run scripts/bootstrap.sh (pip install -e flydsl-rocprof-cli)."
+fi
+warn "MANDATORY: profile via flyprof-capture -> flyprof-analyze/triage -> rocm-report-skill."
+warn "Do NOT hand-roll a rocprofv3 collection script or counter summarize.py (see docs/profiling_contract.md)."
+
 echo "== preflight: $([[ $fail -eq 0 ]] && echo PASS || echo FAIL) =="
 exit $fail

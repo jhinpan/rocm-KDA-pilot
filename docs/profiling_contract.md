@@ -1,6 +1,33 @@
 # Profiling Contract
 
-Profile only to answer a named question.
+Profile only to answer a named question -- and answer it with the verified
+flyprof + rocm-report-skill chain, **never** a hand-rolled rocprofv3 script.
+
+## Mandatory tooling (binding)
+
+All ROCm/FlyDSL kernel profiling uses the user-level skill chain:
+`flyprof-usage` (if unsure) -> `flyprof-capture` -> `flyprof-analyze` /
+`flyprof-triage` -> `rocm-report-skill`; `ROCmKernelWiki` for prior art.
+
+- **Do NOT write a bespoke `rocprofv3 -i <pmc> --output-format csv` collection
+  script or a hand-rolled counter `summarize.py`.** These reinvent a verified tool,
+  are easy to misread (e.g. confusing work-items for workgroups, inverting a stall
+  ratio), and produce non-replayable artifacts. Use `flyprof-capture` +
+  `rocm-report-skill` instead.
+- "Profile only to answer a named question" is NOT a license to skip profiling. It
+  means: when a round needs a bottleneck/lever decision, *use this chain to produce
+  the artifact that answers it*. A bottleneck claim ("LDS-wait bound") or a
+  deeper-lever decision ("do a pipeline/LDS rewrite") with no flyprof/rocm-report
+  artifact is unsupported and a review should reject it.
+- A stale profile is not a fresh profile. If a conclusion is being reused several
+  rounds later to justify new work, re-capture rather than re-cite.
+
+Rationale (MXFP4 MoE loop): a 28-round loop profiled exactly once, early, with a
+hand-written rocprofv3 collection script that the reviewer repeatedly faulted
+(work-items misread as workgroups; the largest stall mislabeled); every later
+"LDS-wait bound" conclusion leaned on that single stale hand-rolled capture, and
+the verified flyprof / rocm-report / ROCmKernelWiki skills were never invoked once.
+The chain below exists precisely to prevent that.
 
 ## Baseline trace is a round-0 deliverable, not a finalization step
 
@@ -22,12 +49,14 @@ Round-0 profiling checklist:
   GPU/shape/warmup/iters (so the gap is quantified before any change).
 - A one-line read of the top bubble class, which becomes the first hypothesis.
 
-Use `flyprof` first for FlyDSL kernels:
+Use `flyprof` first for FlyDSL kernels. Discover the kernel name with
+`flyprof list`, then run that kernel (it is `flash_attn_fwd` for FlashAttention,
+a MoE GEMM target for the MoE family, a GEMM target for the GEMM family, etc.):
 
 ```bash
 flyprof doctor -f json
-flyprof list --worktree "$PWD" -f json
-flyprof run flash_attn_fwd --worktree "$PWD" --gpu "$GPU" --bundle "profile/<run-id>/flyprof" -f json
+flyprof list --worktree "$PWD" -f json          # pick <kernel> from this list
+flyprof run <kernel> --worktree "$PWD" --gpu "$GPU" --bundle "profile/<run-id>/flyprof" -f json
 ```
 
 Use `rocm-report-skill` when you need a report that converts rocprofv3 / ATT
