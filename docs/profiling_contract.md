@@ -49,12 +49,14 @@ Round-0 profiling checklist:
   GPU/shape/warmup/iters (so the gap is quantified before any change).
 - A one-line read of the top bubble class, which becomes the first hypothesis.
 
-Use `flyprof` first for FlyDSL kernels:
+Use `flyprof` first for FlyDSL kernels. Discover the kernel name with
+`flyprof list`, then run that kernel (it is `flash_attn_fwd` for FlashAttention,
+a MoE GEMM target for the MoE family, a GEMM target for the GEMM family, etc.):
 
 ```bash
 flyprof doctor -f json
-flyprof list --worktree "$PWD" -f json
-flyprof run flash_attn_fwd --worktree "$PWD" --gpu "$GPU" --bundle "profile/<run-id>/flyprof" -f json
+flyprof list --worktree "$PWD" -f json          # pick <kernel> from this list
+flyprof run <kernel> --worktree "$PWD" --gpu "$GPU" --bundle "profile/<run-id>/flyprof" -f json
 ```
 
 Use `rocm-report-skill` when you need a report that converts rocprofv3 / ATT

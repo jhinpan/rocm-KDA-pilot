@@ -1,18 +1,24 @@
 ---
 name: rocm-kda-pilot
-description: Orchestrator for ANY FlyDSL / AMD ROCm GPU kernel optimization loop -- FlashAttention, GEMM, MoE (incl. MXFP4/fp8), and other kernels, on gfx942 / gfx950 / gfx1250. Use whenever the task is tuning or optimizing a FlyDSL/ROCm kernel (raise MFU/TFLOPS, cut latency, fix a profiled bottleneck), not just FlashAttention. Combines ROCmKernelWiki, flyprof (flydsl-rocprof-cli), rocm-report-skill, benchmark discipline, and Humanize RLCR. Profiling MUST go through flyprof + rocm-report-skill -- never hand-roll a rocprofv3 collection script.
+description: Orchestrator for ANY FlyDSL GPU kernel optimization loop on AMD ROCm -- FlashAttention, GEMM, MoE (incl. MXFP4/fp8), and other FlyDSL kernels, on gfx942 / gfx950 / gfx1250. Use whenever the task is tuning or optimizing a FlyDSL kernel (raise MFU/TFLOPS, cut latency, fix a profiled bottleneck), not just FlashAttention. Combines ROCmKernelWiki, flyprof (flydsl-rocprof-cli), rocm-report-skill, benchmark discipline, and Humanize RLCR. For FlyDSL kernels profiling MUST go through flyprof + rocm-report-skill -- never hand-roll a rocprofv3 collection script.
 allowed-tools: Read Bash Grep Glob
 ---
 
 # ROCm KDA Pilot
 
-Use this skill for **any** FlyDSL / AMD ROCm GPU kernel optimization loop, not
+Use this skill for **any** FlyDSL GPU kernel optimization loop on AMD ROCm, not
 only FlashAttention. It is the orchestrator that combines ROCmKernelWiki (prior
 art), flyprof (capture/analyze/triage), rocm-report-skill (evidence -> one
 hypothesis), benchmark discipline, and the Humanize RLCR loop. Trigger it
-whenever the task is to tune/optimize a FlyDSL or ROCm kernel -- GEMM, MoE
+whenever the task is to tune/optimize a FlyDSL kernel -- GEMM, MoE
 (including MXFP4 per-1x32 fp4 and fp8 mixed), attention, or any other -- across
 gfx942 / gfx950 / gfx1250.
+
+Scope note: the mandatory `flyprof` chain below is specific to **FlyDSL**
+kernels (flyprof drives the FlyDSL test harnesses). For a non-FlyDSL ROCm/HIP
+kernel, the loop discipline and the no-hand-rolled-rocprofv3 rule still apply,
+but use `rocm-report-skill` + `ROCmKernelWiki` over standard rocprofv3/ATT
+artifacts instead of `flyprof run`.
 
 ## Kernel families (all in scope)
 
@@ -27,9 +33,12 @@ family, then run the same loop discipline:
   + aiter `op_tests/test_moe_2stage.py`; contract
   `templates/flydsl_mxfp4_moe_gfx950_contract.md` (ROCm/FlyDSL#708). Provision with
   `scripts/new_flydsl_task.sh --template mxfp4`.
-- **GEMM / other**: use the closest harness in `tests/kernels/` and the
-  `gemm-optimization` tile priors; the same mandatory-tooling + loop discipline
-  apply.
+- **GEMM / other**: use the closest harness in `tests/kernels/` and the tile /
+  rasterization priors in ROCmKernelWiki
+  (`wiki/kernels/flydsl-preshuffle-gemm.md`,
+  `sources/blogs/blog-gemm-optimization.md`); the same mandatory-tooling + loop
+  discipline apply. (If the FlyDSL checkout ships a project-local
+  `gemm-optimization` skill, prefer its M-regime tile table as priors.)
 
 The FlashAttention-specific guidance (PR683 baseline, fp8 parity targets) is one
 family's specialization; the **mandatory tooling** and **loop discipline**

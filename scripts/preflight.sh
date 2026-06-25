@@ -216,7 +216,7 @@ fi
 if command -v flyprof >/dev/null 2>&1; then
   ok "flyprof CLI on PATH."
 else
-  warn "flyprof CLI not on PATH; run scripts/bootstrap.sh (pip install -e flydsl-rocprof-cli)."
+  bad "flyprof CLI not on PATH; run scripts/bootstrap.sh (pip install -e flydsl-rocprof-cli)."
 fi
 warn "MANDATORY: profile via flyprof-capture -> flyprof-analyze/triage -> rocm-report-skill."
 warn "Do NOT hand-roll a rocprofv3 collection script or counter summarize.py (see docs/profiling_contract.md)."
