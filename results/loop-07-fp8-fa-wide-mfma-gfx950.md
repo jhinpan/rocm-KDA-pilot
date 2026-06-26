@@ -56,13 +56,15 @@ upper-triangle tiles efficiently, so its *effective* causal TFLOPS collapse. Fly
 
 ## Honest assessment — why non-causal parity is still open
 
-The wide atom cut PV MFMA 4× but moved GRBM active cycles only ~4% — the kernel is **not
-MFMA-issue-bound**. Roofline: HBM ~8–10% utilized; FlyDSL ~41% vs aiter ~49% of fp8 MFMA peak.
-The binding constraint is the VGPR-limited dual-wave pipeline (occupancy/latency-bound), as the
-earlier fp8 loop (loop-04) named. Closing non-causal needs a **structural** change (lower the
-VGPR live-range peak to raise occupancy, or a BLOCK_M=128 / 4-wave schedule rewrite) — a separate
-effort. The already-wired wide-PV combos were **tested-negative** (slower than the default), so
-they are queued with evidence, not deferred by hand-wave.
+Adopting the wide atom cut MFMA instruction count ~4× (default-path wide QK on the QK matmul; and
+in a separate experiment the wide-PV variant on the PV matmul) but barely moved GRBM active cycles
+(~4%) — the kernel is **not MFMA-issue-bound**. Roofline: HBM ~8–10% utilized; FlyDSL ~41% vs
+aiter ~49% of fp8 MFMA peak. The binding constraint is the VGPR-limited dual-wave pipeline
+(occupancy/latency-bound), as the earlier fp8 loop (loop-04) named. Closing non-causal needs a
+**structural** change (lower the VGPR live-range peak to raise occupancy, or a BLOCK_M=128 /
+4-wave schedule rewrite) — a separate effort. Consistent with this, the wide-PV combos were
+**tested-negative** (slower than the default HIPREC+wide-QK path), so they are queued with
+evidence, not deferred by hand-wave.
 
 ## Lessons learned
 
@@ -80,11 +82,15 @@ repo); see the FlyDSL build/env setup in its CLAUDE.md.
 python3 tests/kernels/test_flash_attn_fwd.py --dtype fp8 --compare --no-causal \
   --batch 1 --seq_len 2048 --num_heads 64 --num_kv_heads 64 --head_dim 128 --warmup 10 --iters 100
 # FLYDSL_FP8_WIDE_QK=0 opts out to narrow QK (ISA byte-identical to base).
-# full 60-config sweep = DEFAULT_CONFIGS, run BOTH directions separately (no shape flags):
+# multi-shape sweep: run DEFAULT_CONFIGS (no shape flags) in BOTH directions:
 python3 tests/kernels/test_flash_attn_fwd.py --dtype fp8 --compare --no-causal --warmup 10 --iters 100
 python3 tests/kernels/test_flash_attn_fwd.py --dtype fp8 --compare --causal    --warmup 10 --iters 100
 # operand-layout decode: python3 tests/kernels/probe_wide_layout.py
 ```
+
+The "60-config" table is the **dense rows that meet aiter's native-asm dispatch gate** (head_dim
+128, pow-2 GQA, seqlen_q>128): 30 such configs per direction × 2 directions. DEFAULT_CONFIGS also
+emits split-K rows, which fp8 rejects by design (ERROR) and are excluded from the comparison.
 
 ## Process cost (for workflow tracking)
 
