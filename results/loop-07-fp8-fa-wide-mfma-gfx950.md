@@ -1,19 +1,23 @@
 # Loop 07 — FlyDSL fp8 FlashAttention: wide 32×32×64 MFMA, gfx950 (MI350X)
 
 **Date:** 2026-06-26 · **GPU:** MI350X (gfx950) · **Continues:** loop-04 (fp8 FA landed) and
-loop-06 (rocprofv3 proved the 4× MMA-width gap). This loop **executes loop-06's concrete next
-hypothesis** — adopt the wide `mfma_scale_f32_32x32x64_f8f6f4` atom — and lands it.
+loop-06 (rocprofv3 identified the 4× MMA-width mismatch). This loop **executes loop-06's concrete
+next hypothesis** — adopt the wide `mfma_scale_f32_32x32x64_f8f6f4` atom — and lands it.
 
 ## At a glance
 
-- Loop-06 found the dominant gap to aiter's native fp8 ASM was the MMA intrinsic width: aiter
-  uses `32x32x64` (65536 MACs/op); FlyDSL used `32x32x16` (16384 MACs/op), 4× narrower.
+- Loop-06 identified a major structural difference vs aiter's native fp8 ASM: the MMA intrinsic
+  width. aiter uses `32x32x64` (65536 MACs/op); FlyDSL used `32x32x16` (16384 MACs/op), 4×
+  narrower. (As this loop shows, width is one lever, not the whole gap — see the assessment below.)
 - This loop adopted the wide atom for **QK** (default-on, `FLYDSL_FP8_WIDE_QK`) and, opt-in, for
   **PV** (`FLYDSL_FP8_WIDE_MMA` + no-barrier in-register P shuffle `FLYDSL_FP8_WIDE_PSHUF`).
-- **Outcome:** IMPROVEMENT (tier T1 reached). Default fp8 ~947 → ~1050–1078 TF on the headline
-  (+11–14%). On a 60-config multi-shape sweep: **causal beats aiter native ASM (geomean 117%,
-  up to 151%)**; non-causal trails (geomean 68%). All min_cos ≥ 0.99999.
-- Delivered to PR ROCm/FlyDSL#711; gate-off + opt-out codegen ISA byte-identical to base.
+- **Outcome:** IMPROVEMENT (tier T1 reached). The wide QK atom adds **+5–9%** to the default fp8
+  path (gate-toggle attribution); on the headline (B1 S2048 H64) the default fp8 path measures
+  ~1050–1078 TF (min_cos 1.0000). On a 60-config multi-shape sweep: **causal beats aiter native
+  ASM (geomean 117%, up to 151%)**; non-causal trails (geomean 68%). All 60 default-path sweep
+  configs PASS at min_cos ≥ 0.99999.
+- Delivered to PR ROCm/FlyDSL#711; gate-off and opt-out (`FLYDSL_FP8_WIDE_QK=0`) codegen is ISA
+  byte-identical to base (the wide QK default itself changes the ISA — that is the optimization).
 
 ## What landed (default path)
 
@@ -21,9 +25,11 @@ hypothesis** — adopt the wide `mfma_scale_f32_32x32x64_f8f6f4` atom — and la
   `32x32x64` MFMAs over head_dim=128 instead of 8 narrow `32x32x16`. QK is native fp8 in every
   PV mode, so it is PV-mode-independent and applies to HIPREC (the fast default).
   - This is the **only source of the default-path gain** (gate-toggle attribution: +5–9% across
-    causal and non-causal; the opt-in wide-PV helps only the slower NATIVE mode).
-- **Opt-in wide PV** (`FLYDSL_FP8_WIDE_MMA` + `FLYDSL_FP8_WIDE_PSHUF`): correct (min_cos 0.9993)
-  no-barrier in-register P gather, but NATIVE PV ≪ HIPREC, so it stays opt-in.
+    causal and non-causal).
+- **Opt-in wide PV** (`FLYDSL_FP8_WIDE_MMA` + `FLYDSL_FP8_WIDE_PSHUF`): a correct (min_cos 0.9993)
+  no-barrier in-register P gather, but it was **tested-negative** — the wide-PV combos run slower
+  than the default HIPREC+wide-QK path (NATIVE/FROMBF16 PV are below HIPREC's bf16 PV throughput),
+  so it stays opt-in / closed-with-evidence, contributing nothing to the default path.
 
 ## Measured result (60-config sweep, MI350X, warmup10/iters100, FLOPs causal-discounted)
 
@@ -34,8 +40,10 @@ hypothesis** — adopt the wide `mfma_scale_f32_32x32x64_f8f6f4` atom — and la
 | Overall | 89% | 21/60 | — |
 
 aiter_asm = `aiter.ops.mha.fmha_v3_fwd(..., how_v3_bf16_cvt=0)` — native fp8 ASM
-(`fwd_hd128_fp8.co` / `fwd_hd128_fp8_causal.co`), NOT the bf16-convert path. Full per-config
-table + CSVs accompany the PR.
+(`fwd_hd128_fp8.co` / `fwd_hd128_fp8_causal.co`), NOT the bf16-convert path. The full per-config
+table (60 rows, FlyDSL/aiter_asm/aiter_ck µs+TFLOPS) and raw CSVs are posted as a comment on
+ROCm/FlyDSL#711; they are not committed to this repo (per the "keep raw artifacts untracked"
+contract).
 
 ## Why causal wins but non-causal trails
 
@@ -50,9 +58,9 @@ upper-triangle tiles efficiently, so its *effective* causal TFLOPS collapse. Fly
 
 The wide atom cut PV MFMA 4× but moved GRBM active cycles only ~4% — the kernel is **not
 MFMA-issue-bound**. Roofline: HBM ~8–10% utilized; FlyDSL ~41% vs aiter ~49% of fp8 MFMA peak.
-The binding constraint is the VGPR-limited dual-wave pipeline (occupancy/latency-bound), exactly
-as loop-04/05 named. Closing non-causal needs a **structural** change (lower the VGPR
-live-range peak to raise occupancy, or a BLOCK_M=128 / 4-wave schedule rewrite) — a separate
+The binding constraint is the VGPR-limited dual-wave pipeline (occupancy/latency-bound), as the
+earlier fp8 loop (loop-04) named. Closing non-causal needs a **structural** change (lower the
+VGPR live-range peak to raise occupancy, or a BLOCK_M=128 / 4-wave schedule rewrite) — a separate
 effort. The already-wired wide-PV combos were **tested-negative** (slower than the default), so
 they are queued with evidence, not deferred by hand-wave.
 
@@ -64,18 +72,25 @@ width; control-group-before-blame; gate-off ISA byte-identity as the equivalence
 
 ## Reproduce
 
+All commands run from a `ROCm/FlyDSL` PR #711 checkout (these are FlyDSL repo paths, not this
+repo); see the FlyDSL build/env setup in its CLAUDE.md.
+
 ```bash
-# default fp8 (HIPREC + wide QK):
+# headline default fp8 (HIPREC + wide QK), one shape:
 python3 tests/kernels/test_flash_attn_fwd.py --dtype fp8 --compare --no-causal \
   --batch 1 --seq_len 2048 --num_heads 64 --num_kv_heads 64 --head_dim 128 --warmup 10 --iters 100
-# add --causal for the causal gate; FLYDSL_FP8_WIDE_QK=0 opts out to narrow QK.
-# full multi-shape sweep: drop the explicit shape flags (uses DEFAULT_CONFIGS).
+# FLYDSL_FP8_WIDE_QK=0 opts out to narrow QK (ISA byte-identical to base).
+# full 60-config sweep = DEFAULT_CONFIGS, run BOTH directions separately (no shape flags):
+python3 tests/kernels/test_flash_attn_fwd.py --dtype fp8 --compare --no-causal --warmup 10 --iters 100
+python3 tests/kernels/test_flash_attn_fwd.py --dtype fp8 --compare --causal    --warmup 10 --iters 100
 # operand-layout decode: python3 tests/kernels/probe_wide_layout.py
 ```
 
 ## Process cost (for workflow tracking)
 
 RLCR loop, 6 rounds to COMPLETE (baseline+profile → route-A P-shuffle fix → route-C wide QK →
-HIPREC promotion/T1 → full non-regression+convergence → delivery+wording). Every candidate
-default-off and gated; default codegen byte-identical throughout. A 7th post-loop pass added the
-multi-shape sweep + the style refactor (ISA byte-identical).
+HIPREC promotion/T1 → full non-regression+convergence → delivery+wording). Each candidate was
+explored behind its own gate; until the final default-promotion the default path stayed
+byte-identical, and after promotion the opt-out (`FLYDSL_FP8_WIDE_QK=0`) reproduces the base ISA
+byte-for-byte. A 7th post-loop pass added the multi-shape sweep + a style refactor (verified ISA
+byte-identical).

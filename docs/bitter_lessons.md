@@ -28,7 +28,7 @@ real; the provenance was gone, and review rejected it.
 and cite that exact path. Never rely on a tool's default shared output filename for a cited number.
 
 ### BL-03 — Close dead-end levers with falsification, don't hand-wave "future work"
-**Where it bit:** loop-04/05 (incremental tuning) and loop-07 (wide-PV). Risk is either tuning a
+**Where it bit:** loop-04 (incremental tuning) and loop-07 (wide-PV). Risk is either tuning a
 dead end forever, or deferring with no evidence (which strict review treats as incomplete).
 **Fix:** before deferring a lever, either attempt it OR produce explicit falsification evidence
 (a cheap negative benchmark, or a profiled binding-constraint argument). "Closed with
@@ -76,13 +76,15 @@ narrow `32x32x16`; paper derivations produced wrong intermediate states (min_cos
 known inputs, read back the (lane,byte)→(row/col, contraction-index) map), and treat the
 end-to-end correctness gate as the ground truth.
 
-### BL-08 — One optimization = one default-off gate (= bisectable + safe + attributable)
+### BL-08 — One optimization = one gate (= bisectable + safe + attributable)
 **Where it bit (positively):** loop-07. Every lever was a separate env gate, so "toggle gate =
-commit bisection" gave exact attribution (the entire default-path gain was the wide QK atom; wide
-PV only helped the slow NATIVE mode) without a real git bisect, and default-off kept delivery
-byte-identical.
-**Fix:** keep each optimization behind its own default-off gate; it makes attribution, safe
-default delivery, and ISA-identity verification trivial.
+commit bisection" gave exact attribution (the entire default-path gain was the wide QK atom; the
+wide-PV combos were tested-negative — slower than default — so they contributed nothing) without a
+real git bisect. While each lever was default-off the default path stayed byte-identical; the one
+lever promoted to default (wide QK) deliberately changes the ISA, but its opt-out
+(`FLYDSL_FP8_WIDE_QK=0`) reproduces the base ISA byte-for-byte.
+**Fix:** keep each optimization behind its own gate with an opt-out; it makes attribution, safe
+delivery (gate-off / opt-out ISA-identity), and bisection trivial.
 
 ### BL-09 — Converge exploratory mode/flag sprawl
 **Where it bit:** loop-04→07. The fp8 path accumulated three PV precision modes (HIPREC default +
